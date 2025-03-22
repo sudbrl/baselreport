@@ -8,17 +8,18 @@ from io import BytesIO
 st.set_page_config(layout="wide", page_title="Financial Dashboard")
 
 # GitHub file URL (RAW version)
-github_file_url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
+GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
 
-# Function to load Excel file from GitHub
+# Function to fetch Excel file from GitHub
 @st.cache_data
-def load_data(url):
+def fetch_excel_from_github(url):
     response = requests.get(url)
-    response.raise_for_status()  # Ensure we get a valid response
-    return pd.ExcelFile(BytesIO(response.content))
+    response.raise_for_status()
+    return response.content  # Cache only raw file content (bytes)
 
-# Load data from GitHub
-xls = load_data(github_file_url)
+# Load Excel file from GitHub
+excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
+xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
 
 # Parse "Data" sheet
 raw_data = xls.parse("Data")
@@ -38,14 +39,14 @@ st.markdown("""
         div.block-container {padding: 20px;}
         .stDataFrame {border-radius: 10px; overflow: hidden;}
         .stButton > button {background-color: #3498db; color: white; border-radius: 10px; padding: 5px 10px;}
-        .stSelectbox > div {border-radius: 10px;}
+        .stMultiSelect > div {border-radius: 10px;}
     </style>
     """, unsafe_allow_html=True)
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
-# Create a 2-column layout (Filters Left, Data/Charts Right)
+# Create a 2-column layout (Filters on left, Data/Charts on right)
 col_filters, col_content = st.columns([1, 3])
 
 with col_filters:
@@ -61,7 +62,7 @@ with col_filters:
 
     # Reset button to clear filters
     if st.button("🔄 Reset Filters"):
-        particulars_selected, month_selected = ["All"], ["All"]
+        st.experimental_rerun()
 
     # Remove "All" if other options are selected
     if "All" in particulars_selected and len(particulars_selected) > 1:
