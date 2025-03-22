@@ -17,7 +17,7 @@ data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.
 # Parse "Sheet1" (NPA Data)
 npa_data = xls.parse("Sheet1")
 
-# Custom CSS for better visuals
+# Apply custom styling to the dashboard
 st.markdown(
     """
     <style>
@@ -25,30 +25,6 @@ st.markdown(
         div.stTitle {color: #2c3e50; text-align: center; font-size: 30px; font-weight: bold;}
         div.block-container {padding: 20px;}
         .stButton button {width: 100%; background-color: #2c3e50; color: white; font-weight: bold; border-radius: 5px;}
-        
-        /* Data Table Styling */
-        .styled-table {
-            width: 100%;
-            border-collapse: collapse;
-            border-radius: 10px;
-            overflow: hidden;
-            font-size: 14px;
-            text-align: left;
-        }
-        .styled-table th, .styled-table td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-        }
-        .styled-table th {
-            background-color: #2c3e50;
-            color: white;
-        }
-        .styled-table tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        .styled-table tr:hover {
-            background-color: #ddd;
-        }
     </style>
     """, unsafe_allow_html=True
 )
@@ -101,22 +77,8 @@ with tab1:
     with right_col:
         st.subheader("📊 Data Table & Trends")
 
-        # Display DataFrame with Custom Styling
-        if not filtered_data.empty:
-            st.markdown(f"""
-            <div style="overflow-x:auto;">
-                <table class="styled-table">
-                    <thead>
-                        <tr>{"".join([f"<th>{col}</th>" for col in filtered_data.columns])}</tr>
-                    </thead>
-                    <tbody>
-                        {"".join(["<tr>" + "".join([f"<td>{row[col]}</td>" for col in filtered_data.columns]) + "</tr>" for _, row in filtered_data.iterrows()])}
-                    </tbody>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ No data available for selected filters.")
+        # Display DataFrame
+        st.dataframe(filtered_data, height=400)
 
         # Trend Chart for Selected Particulars
         if "All" not in selected_particulars and selected_particulars:
