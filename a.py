@@ -46,23 +46,32 @@ st.markdown("""
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
+# Function to reset filters using session state
+def reset_filters():
+    st.session_state["particulars_selected"] = ["All"]
+    st.session_state["month_selected"] = ["All"]
+
 # Create a 2-column layout (Filters on left, Data/Charts on right)
 col_filters, col_content = st.columns([1, 3])
 
 with col_filters:
     st.header("🔍 Filters")
 
-    # Multi-select filter for "Particulars"
+    # Multi-select filter for "Particulars" with session state
     particulars_options = list(data["Particulars"].dropna().unique())
-    particulars_selected = st.multiselect("Select Particulars:", ["All"] + particulars_options, default=["All"])
+    particulars_selected = st.multiselect("Select Particulars:", ["All"] + particulars_options, 
+                                          default=st.session_state.get("particulars_selected", ["All"]), 
+                                          key="particulars_selected")
 
-    # Multi-select filter for "Month"
+    # Multi-select filter for "Month" with session state
     month_options = list(data["Month"].dropna().unique())
-    month_selected = st.multiselect("Select Month:", ["All"] + month_options, default=["All"])
+    month_selected = st.multiselect("Select Month:", ["All"] + month_options, 
+                                    default=st.session_state.get("month_selected", ["All"]), 
+                                    key="month_selected")
 
     # Reset button to clear filters
     if st.button("🔄 Reset Filters"):
-        st.experimental_rerun()
+        reset_filters()
 
     # Remove "All" if other options are selected
     if "All" in particulars_selected and len(particulars_selected) > 1:
