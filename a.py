@@ -18,21 +18,23 @@ def load_data():
     if response.status_code == 200:
         excel_data = io.BytesIO(response.content)
         xls = pd.ExcelFile(excel_data)
-        return xls
+        
+        # ✅ Return dictionary of DataFrames instead of ExcelFile
+        return {sheet: xls.parse(sheet) for sheet in xls.sheet_names}
     else:
         st.error("❌ Failed to load data from GitHub. Please check the file URL.")
         return None
 
 # Load Data
-xls = load_data()
-if xls is not None:
-    # Parse "Data" sheet and process
-    raw_data = xls.parse("Data")
-    columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
-    data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
+xls_sheets = load_data()
+if xls_sheets is not None:
+    # ✅ Extract sheets as DataFrames
+    data = xls_sheets.get("Data", pd.DataFrame())
+    npa_data = xls_sheets.get("Sheet1", pd.DataFrame())
 
-    # Parse "Sheet1" (NPA Data)
-    npa_data = xls.parse("Sheet1")
+    # ✅ Drop unnecessary columns
+    columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
+    data = data.drop(columns=[col for col in columns_to_drop if col in data.columns], errors="ignore")
 
 # ✅ Custom Styling
 st.markdown(
@@ -40,7 +42,7 @@ st.markdown(
     <style>
         .main {background-color: #f4f4f9;}
         div.block-container {padding: 20px;}
-        .stButton>button {background-color: #007BFF; color: white; font-weight: bold; border-radius: 5px; padding: 8px;}
+        .stButton>button {background-color: #007BFF; color: white; font-weight: bold; border-radius: 5px; padding: 6px 10px; font-size: 12px;}
         .stButton>button:hover {background-color: #0056b3;}
     </style>
     """,
@@ -75,22 +77,25 @@ def reset_filters():
     st.session_state["selected_months"] = ["All"]
     st.rerun()
 
-st.sidebar.button("🔄 Reset Filters", on_click=reset_filters)
+col_reset, col_download = st.sidebar.columns([1, 1])
+
+with col_reset:
+    st.button("🔄 Reset", on_click=reset_filters)
 
 # ✅ Download Filtered Data
 def convert_df_to_excel(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Filtered Data")
-    processed_data = output.getvalue()
-    return processed_data
+    return output.getvalue()
 
-st.sidebar.download_button(
-    label="⬇ Download Excel",
-    data=convert_df_to_excel(filtered_data),
-    file_name="filtered_data.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
+with col_download:
+    st.download_button(
+        label="⬇ Excel",
+        data=convert_df_to_excel(filtered_data),
+        file_name="filtered_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 # ✅ Dashboard Layout (2-Column Design)
 col1, col2 = st.columns([1, 2])
@@ -128,4 +133,3 @@ if {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}.issubset(
     st.plotly_chart(fig3, use_container_width=True)
 else:
     st.error("⚠️ NPA data is missing required columns!")
-
