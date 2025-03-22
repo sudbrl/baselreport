@@ -1,20 +1,24 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import requests
+from io import BytesIO
 
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Financial Dashboard")
 
-# Function to load Excel file
+# GitHub file URL (RAW version)
+github_file_url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
+
+# Function to load Excel file from GitHub
 @st.cache_data
-def load_data(file):
-    return pd.ExcelFile(file)
+def load_data(url):
+    response = requests.get(url)
+    response.raise_for_status()  # Ensure we get a valid response
+    return pd.ExcelFile(BytesIO(response.content))
 
-# Load file from GitHub (default) or allow upload
-github_file_url = "https://raw.githubusercontent.com/sudbrl/baselreport/main/baseldata.xlsm"
-uploaded_file = st.file_uploader("Upload Basel Data (XLSM)", type=["xlsm"])
-
-xls = load_data(uploaded_file if uploaded_file else github_file_url)
+# Load data from GitHub
+xls = load_data(github_file_url)
 
 # Parse "Data" sheet
 raw_data = xls.parse("Data")
@@ -112,4 +116,3 @@ if required_npa_columns.issubset(npa_data.columns):
     st.plotly_chart(fig3, use_container_width=True)
 else:
     st.error("⚠️ NPA data is missing required columns!")
-
