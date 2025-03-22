@@ -31,6 +31,17 @@ data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.
 # Parse "Sheet1" (NPA Data)
 npa_data = xls.parse("Sheet1")
 
+# Initialize session state variables if not already set
+if "particulars_selected" not in st.session_state:
+    st.session_state["particulars_selected"] = ["All"]
+if "month_selected" not in st.session_state:
+    st.session_state["month_selected"] = ["All"]
+
+# Function to reset filters (MUST be inside a callback)
+def reset_filters():
+    st.session_state["particulars_selected"] = ["All"]
+    st.session_state["month_selected"] = ["All"]
+
 # Custom CSS for UI styling
 st.markdown("""
     <style>
@@ -45,17 +56,6 @@ st.markdown("""
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
-
-# Initialize session state variables if not already set
-if "particulars_selected" not in st.session_state:
-    st.session_state["particulars_selected"] = ["All"]
-if "month_selected" not in st.session_state:
-    st.session_state["month_selected"] = ["All"]
-
-# Function to reset filters
-def reset_filters():
-    st.session_state["particulars_selected"] = ["All"]
-    st.session_state["month_selected"] = ["All"]
 
 # Create a 2-column layout (Filters on left, Data/Charts on right)
 col_filters, col_content = st.columns([1, 3])
@@ -79,22 +79,21 @@ with col_filters:
         key="month_selected"
     )
 
-    # Reset Button
-    if st.button("🔄 Reset Filters"):
-        reset_filters()
+    # Reset Button (Must use `on_click` for session state updates)
+    st.button("🔄 Reset Filters", on_click=reset_filters)
 
     # Remove "All" if other options are selected
     if "All" in particulars_selected and len(particulars_selected) > 1:
-        particulars_selected.remove("All")
+        st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
     if "All" in month_selected and len(month_selected) > 1:
-        month_selected.remove("All")
+        st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
 
 # Apply filters
 filtered_data = data.copy()
-if "All" not in particulars_selected:
-    filtered_data = filtered_data[filtered_data["Particulars"].isin(particulars_selected)]
-if "All" not in month_selected:
-    filtered_data = filtered_data[filtered_data["Month"].isin(month_selected)]
+if "All" not in st.session_state["particulars_selected"]:
+    filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
+if "All" not in st.session_state["month_selected"]:
+    filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
 
 # --- Display Data Table & Trends ---
 with col_content:
@@ -106,9 +105,10 @@ with col_content:
     ), height=400)
 
     # Trend Chart for Selected Particulars
-    if "All" not in particulars_selected and not filtered_data.empty:
+    if "All" not in st.session_state["particulars_selected"] and not filtered_data.empty:
         fig = px.line(filtered_data, x="Month", y="Rs", 
-                      title=f"📈 Trend for {', '.join(particulars_selected)}", template="plotly_white")
+                      title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
+                      template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
 
 # --- NPA Trends ---
