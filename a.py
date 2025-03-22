@@ -106,6 +106,17 @@ with tab1:
         if "All" in month_selected and len(month_selected) > 1:
             st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
 
+        # Convert filtered data to CSV
+        csv_data = data.to_csv(index=False).encode("utf-8")
+
+        # Download Button for Filtered Data
+        st.download_button(
+            label="📥 Download Filtered Data",
+            data=csv_data,
+            file_name="filtered_financial_data.csv",
+            mime="text/csv",
+        )
+
     # Apply filters
     filtered_data = data.copy()
     if "All" not in st.session_state["particulars_selected"]:
