@@ -106,17 +106,6 @@ with tab1:
         if "All" in month_selected and len(month_selected) > 1:
             st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
 
-        # Convert filtered data to CSV
-        csv_data = data.to_csv(index=False).encode("utf-8")
-
-        # Download Button for Filtered Data
-        st.download_button(
-            label="📥 Download Filtered Data",
-            data=csv_data,
-            file_name="filtered_financial_data.csv",
-            mime="text/csv",
-        )
-
     # Apply filters
     filtered_data = data.copy()
     if "All" not in st.session_state["particulars_selected"]:
@@ -124,13 +113,13 @@ with tab1:
     if "All" not in st.session_state["month_selected"]:
         filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
 
-    # Display error message if no matching data
-    if filtered_data.empty:
-        st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
-    else:
-        with col_content:
-            st.subheader("📊 Data Table & Trends")
+    with col_content:
+        st.subheader("📊 Data Table & Trends")
 
+        # Display error message if no matching data
+        if filtered_data.empty:
+            st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
+        else:
             # Display formatted table
             st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
                 [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
@@ -142,6 +131,17 @@ with tab1:
                               title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
                               template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
+
+        # Convert only **filtered** data to CSV for download
+        csv_data = filtered_data.to_csv(index=False).encode("utf-8")
+
+        # Download Button for Filtered Data
+        st.download_button(
+            label="📥 Download Filtered Data",
+            data=csv_data,
+            file_name="filtered_financial_data.csv",
+            mime="text/csv",
+        )
 
 ### --- NPA Trends Tab ---
 with tab2:
