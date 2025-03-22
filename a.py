@@ -23,7 +23,7 @@ try:
     xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
 except requests.exceptions.RequestException as e:
     st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
-    st.stop()  # Stop execution if data cannot be fetched
+    st.stop()
 
 # Parse "Data" sheet
 try:
@@ -34,14 +34,7 @@ except Exception as e:
     st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
     st.stop()
 
-# Parse "Sheet1" (NPA Data)
-try:
-    npa_data = xls.parse("Sheet1")
-except Exception as e:
-    st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
-    st.stop()
-
-# Initialize session state variables if not already set
+# Initialize session state variables
 if "particulars_selected" not in st.session_state:
     st.session_state["particulars_selected"] = ["All"]
 if "month_selected" not in st.session_state:
@@ -52,18 +45,13 @@ def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
 
-# Custom CSS for UI styling
-st.markdown("""
-    <style>
-        .main {background-color: #f4f4f9;}
-        div.stTitle {color: #2c3e50; text-align: center; font-size: 30px; font-weight: bold;}
-        div.block-container {padding: 20px;}
-        .stDataFrame {border-radius: 10px; overflow: hidden;}
-        .stButton > button {background-color: #3498db; color: white; border-radius: 10px; padding: 5px 10px;}
-        .stMultiSelect > div {border-radius: 10px;}
-        .stError {color: red;}
-    </style>
-    """, unsafe_allow_html=True)
+# Function to convert DataFrame to Excel
+def convert_df_to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Filtered Data")
+    processed_data = output.getvalue()
+    return processed_data
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
@@ -124,6 +112,18 @@ with tab1:
             st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
                 [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
             ), height=400)
+
+            # Fancy Download Button for Excel
+            st.markdown("---")
+            st.subheader("📥 Download Filtered Data")
+            excel_data = convert_df_to_excel(filtered_data)
+            st.download_button(
+                label="📥 Download as Excel",
+                data=excel_data,
+                file_name="filtered_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Click to download the filtered data in Excel format 🎉",
+            )
 
             # Trend Chart for Selected Particulars
             if "All" not in st.session_state["particulars_selected"]:
