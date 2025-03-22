@@ -7,7 +7,7 @@ import io
 # ✅ Set Page Configuration
 st.set_page_config(layout="wide", page_title="Financial Dashboard")
 
-# ✅ Load Data from GitHub
+# ✅ Load Data from GitHub (Fixed Version)
 @st.cache_data
 def load_data():
     url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
@@ -15,28 +15,24 @@ def load_data():
     
     if response.status_code == 200:
         file_bytes = io.BytesIO(response.content)
-        xls = pd.ExcelFile(file_bytes)
-        return xls
+        
+        # Load Data Directly as DataFrames
+        data_df = pd.read_excel(file_bytes, sheet_name="Data")
+        npa_df = pd.read_excel(file_bytes, sheet_name="Sheet1")
+
+        return data_df, npa_df
     else:
         st.error("❌ Failed to load data from GitHub. Please check the file URL.")
-        return None
+        return None, None
 
-xls = load_data()
+# ✅ Load Data
+data, npa_data = load_data()
 
-if xls is not None:
-    # ✅ Parse "Data" Sheet
-    raw_data = xls.parse("Data")
+# ✅ Ensure Data Loaded Successfully
+if data is not None and npa_data is not None:
+    # ✅ Drop Unnecessary Columns
     columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
-    data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
-
-    # ✅ Parse "NPA Data" Sheet
-    npa_data = xls.parse("Sheet1")
-
-    # ✅ Initialize Session State for Filters
-    if "particulars_selected" not in st.session_state:
-        st.session_state["particulars_selected"] = ["All"]
-    if "month_selected" not in st.session_state:
-        st.session_state["month_selected"] = ["All"]
+    data = data.drop(columns=[col for col in columns_to_drop if col in data.columns])
 
     # ✅ UI Layout: Filters on Left, Data on Right
     col1, col2 = st.columns([1, 2])
@@ -47,25 +43,23 @@ if xls is not None:
         # 🎯 Particulars Filter
         particulars_options = ["All"] + list(data["Particulars"].dropna().unique())
         selected_particulars = st.multiselect("Select Particulars:", particulars_options, 
-                                              default=st.session_state["particulars_selected"])
+                                              default=["All"])
         
-        # Ensure "All" is removed if other options are selected
         if "All" in selected_particulars and len(selected_particulars) > 1:
             selected_particulars.remove("All")
 
         # 🎯 Month Filter
         month_options = ["All"] + list(data["Month"].dropna().unique())
         selected_months = st.multiselect("Select Month:", month_options, 
-                                         default=st.session_state["month_selected"])
+                                         default=["All"])
 
-        # Ensure "All" is removed if other options are selected
         if "All" in selected_months and len(selected_months) > 1:
             selected_months.remove("All")
 
         # 🔄 Reset Button
         if st.button("♻️ Reset Filters", use_container_width=True):
-            st.session_state["particulars_selected"] = ["All"]
-            st.session_state["month_selected"] = ["All"]
+            selected_particulars = ["All"]
+            selected_months = ["All"]
             st.experimental_rerun()
 
         # 📥 Download Button (Small & Stylish)
@@ -83,8 +77,6 @@ if xls is not None:
                 data=filtered_excel,
                 file_name="filtered_financial_data.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="download_button",
-                help="Download the filtered data in Excel format.",
                 use_container_width=True
             )
 
@@ -101,15 +93,6 @@ if xls is not None:
 
         # 🎨 Styled Data Table
         if not filtered_data.empty:
-            styled_table = filtered_data.style.set_properties(**{
-                'background-color': '#F8F9FA',
-                'border': '1px solid #dee2e6',
-                'text-align': 'left'
-            }).set_table_styles([
-                {'selector': 'thead th', 'props': [('background-color', '#007BFF'), 
-                                                    ('color', 'white'), ('text-align', 'center')]},
-                {'selector': 'tbody td', 'props': [('border', '1px solid #dee2e6')]}
-            ])
             st.dataframe(filtered_data, height=400)
             
             # 📈 Line Chart if Only One Particular is Selected
@@ -145,4 +128,3 @@ if xls is not None:
         st.plotly_chart(fig3, use_container_width=True)
     else:
         st.error("🚨 NPA data is missing required columns!")
-
