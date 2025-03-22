@@ -34,138 +34,52 @@ except Exception as e:
     st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
     st.stop()
 
-# Parse "Sheet1" (NPA Data)
-try:
-    npa_data = xls.parse("Sheet1")
-except Exception as e:
-    st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
-    st.stop()
+# Function to format numerical values
+def format_data(df):
+    df = df.copy()  # Avoid modifying the original dataframe
+    
+    # Format currency columns (assuming 'Rs' stores financial values)
+    if "Rs" in df.columns:
+        df["Rs"] = df["Rs"].apply(lambda x: f"₹{x:,.2f}" if pd.notna(x) else "N/A")  # ₹ currency, comma separator, 2 decimals
+    
+    # Format percentage columns (assuming 'Movements(%)' is a percentage)
+    if "Movements(%)" in df.columns:
+        df["Movements(%)"] = df["Movements(%)"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) else "N/A")  # Retain 2 decimal places with %
 
-# Initialize session state variables if not already set
-if "particulars_selected" not in st.session_state:
-    st.session_state["particulars_selected"] = ["All"]
-if "month_selected" not in st.session_state:
-    st.session_state["month_selected"] = ["All"]
+    # Format other numerical columns (e.g., large numbers in '000' format)
+    for col in df.select_dtypes(include=['number']).columns:
+        if col not in ["Rs", "Movements(%)"]:  # Exclude already formatted columns
+            df[col] = df[col].apply(lambda x: f"{x:,.0f}" if pd.notna(x) else "N/A")  # Add thousands separator, no decimals
+    
+    return df
 
-# Function to reset filters
-def reset_filters():
-    st.session_state["particulars_selected"] = ["All"]
-    st.session_state["month_selected"] = ["All"]
+# Apply formatting to data
+formatted_data = format_data(data)
 
-# Custom CSS for UI styling
-st.markdown("""
-    <style>
-        .main {background-color: #f4f4f9;}
-        div.stTitle {color: #2c3e50; text-align: center; font-size: 30px; font-weight: bold;}
-        div.block-container {padding: 20px;}
-        .stDataFrame {border-radius: 10px; overflow: hidden;}
-        .stButton > button {background-color: #3498db; color: white; border-radius: 10px; padding: 5px 10px;}
-        .stMultiSelect > div {border-radius: 10px;}
-        .stError {color: red;}
-    </style>
-    """, unsafe_allow_html=True)
+# Display formatted data in a nice table using Pandas Styler
+st.subheader("📊 Formatted Financial Data Table")
+st.dataframe(
+    formatted_data.style.format(  # Apply styling
+        {
+            "Rs": "{:,.2f}",  # Two decimal places with comma separator
+            "Movements(%)": "{:.2f}%",  # Retain two decimals
+        }
+    ).set_table_styles(
+        [
+            {"selector": "thead th", "props": [("font-size", "14px"), ("background-color", "#3498db"), ("color", "white")]},
+            {"selector": "tbody td", "props": [("text-align", "right")]}
+        ]
+    ),
+    height=400
+)
 
-# Dashboard Title
-st.title("📊 Financial Dashboard")
+# Convert formatted data to CSV for download
+csv_data = formatted_data.to_csv(index=False).encode("utf-8")
 
-# Tabs for different datasets
-tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
-
-### --- Financial Data Tab ---
-with tab1:
-    st.header("📜 Financial Data Overview")
-
-    # Create a 2-column layout (Filters on left, Data/Charts on right)
-    col_filters, col_content = st.columns([1, 3])
-
-    with col_filters:
-        st.subheader("🔍 Filters")
-
-        # Multi-select filter for "Particulars"
-        particulars_options = list(data["Particulars"].dropna().unique())
-        particulars_selected = st.multiselect(
-            "Select Particulars:", ["All"] + particulars_options, 
-            default=st.session_state["particulars_selected"], 
-            key="particulars_selected"
-        )
-
-        # Multi-select filter for "Month"
-        month_options = list(data["Month"].dropna().unique())
-        month_selected = st.multiselect(
-            "Select Month:", ["All"] + month_options, 
-            default=st.session_state["month_selected"], 
-            key="month_selected"
-        )
-
-        # Reset Button
-        st.button("🔄 Reset Filters", on_click=reset_filters)
-
-        # Remove "All" if other options are selected
-        if "All" in particulars_selected and len(particulars_selected) > 1:
-            st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
-        if "All" in month_selected and len(month_selected) > 1:
-            st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
-
-        # Convert filtered data to CSV
-        csv_data = data.to_csv(index=False).encode("utf-8")
-
-        # Download Button for Filtered Data
-        st.download_button(
-            label="📥 Download Filtered Data",
-            data=csv_data,
-            file_name="filtered_financial_data.csv",
-            mime="text/csv",
-        )
-
-    # Apply filters
-    filtered_data = data.copy()
-    if "All" not in st.session_state["particulars_selected"]:
-        filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
-    if "All" not in st.session_state["month_selected"]:
-        filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
-
-    # Display error message if no matching data
-    if filtered_data.empty:
-        st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
-    else:
-        with col_content:
-            st.subheader("📊 Data Table & Trends")
-
-            # Display formatted table
-            st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
-                [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
-            ), height=400)
-
-            # Trend Chart for Selected Particulars
-            if "All" not in st.session_state["particulars_selected"]:
-                fig = px.line(filtered_data, x="Month", y="Rs", 
-                              title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
-                              template="plotly_white")
-                st.plotly_chart(fig, use_container_width=True)
-
-### --- NPA Trends Tab ---
-with tab2:
-    st.header("📉 NPA Trends")
-
-    # Validate NPA Data Columns
-    required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
-    if required_npa_columns.issubset(npa_data.columns):
-        # Create a 2-column layout for charts
-        col1, col2 = st.columns(2)
-
-        with col1:
-            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
-                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
-            st.plotly_chart(fig1, use_container_width=True)
-
-        with col2:
-            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
-                           title="📊 Net NPA To Net Advances Trend", template="plotly_white")
-            st.plotly_chart(fig2, use_container_width=True)
-
-        # Bar Chart Comparing Gross & Net NPA
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                      barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.error("⚠️ NPA data is missing required columns!")
+# Add a download button below the filters
+st.download_button(
+    label="📥 Download Filtered Data",
+    data=csv_data,
+    file_name="filtered_financial_data.csv",
+    mime="text/csv",
+)
