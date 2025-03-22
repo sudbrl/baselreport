@@ -46,7 +46,13 @@ st.markdown("""
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
-# Function to reset filters using session state
+# Initialize session state variables if not already set
+if "particulars_selected" not in st.session_state:
+    st.session_state["particulars_selected"] = ["All"]
+if "month_selected" not in st.session_state:
+    st.session_state["month_selected"] = ["All"]
+
+# Function to reset filters
 def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
@@ -57,19 +63,23 @@ col_filters, col_content = st.columns([1, 3])
 with col_filters:
     st.header("🔍 Filters")
 
-    # Multi-select filter for "Particulars" with session state
+    # Multi-select filter for "Particulars"
     particulars_options = list(data["Particulars"].dropna().unique())
-    particulars_selected = st.multiselect("Select Particulars:", ["All"] + particulars_options, 
-                                          default=st.session_state.get("particulars_selected", ["All"]), 
-                                          key="particulars_selected")
+    particulars_selected = st.multiselect(
+        "Select Particulars:", ["All"] + particulars_options, 
+        default=st.session_state["particulars_selected"], 
+        key="particulars_selected"
+    )
 
-    # Multi-select filter for "Month" with session state
+    # Multi-select filter for "Month"
     month_options = list(data["Month"].dropna().unique())
-    month_selected = st.multiselect("Select Month:", ["All"] + month_options, 
-                                    default=st.session_state.get("month_selected", ["All"]), 
-                                    key="month_selected")
+    month_selected = st.multiselect(
+        "Select Month:", ["All"] + month_options, 
+        default=st.session_state["month_selected"], 
+        key="month_selected"
+    )
 
-    # Reset button to clear filters
+    # Reset Button
     if st.button("🔄 Reset Filters"):
         reset_filters()
 
