@@ -47,7 +47,7 @@ if "particulars_selected" not in st.session_state:
 if "month_selected" not in st.session_state:
     st.session_state["month_selected"] = ["All"]
 
-# Function to reset filters (must be inside a callback)
+# Function to reset filters
 def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
@@ -68,86 +68,93 @@ st.markdown("""
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
-# Create a 2-column layout (Filters on left, Data/Charts on right)
-col_filters, col_content = st.columns([1, 3])
+# Tabs for different datasets
+tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
 
-with col_filters:
-    st.header("🔍 Filters")
+### --- Financial Data Tab ---
+with tab1:
+    st.header("📜 Financial Data Overview")
 
-    # Multi-select filter for "Particulars"
-    particulars_options = list(data["Particulars"].dropna().unique())
-    particulars_selected = st.multiselect(
-        "Select Particulars:", ["All"] + particulars_options, 
-        default=st.session_state["particulars_selected"], 
-        key="particulars_selected"
-    )
+    # Create a 2-column layout (Filters on left, Data/Charts on right)
+    col_filters, col_content = st.columns([1, 3])
 
-    # Multi-select filter for "Month"
-    month_options = list(data["Month"].dropna().unique())
-    month_selected = st.multiselect(
-        "Select Month:", ["All"] + month_options, 
-        default=st.session_state["month_selected"], 
-        key="month_selected"
-    )
+    with col_filters:
+        st.subheader("🔍 Filters")
 
-    # Reset Button (Must use `on_click` for session state updates)
-    st.button("🔄 Reset Filters", on_click=reset_filters)
+        # Multi-select filter for "Particulars"
+        particulars_options = list(data["Particulars"].dropna().unique())
+        particulars_selected = st.multiselect(
+            "Select Particulars:", ["All"] + particulars_options, 
+            default=st.session_state["particulars_selected"], 
+            key="particulars_selected"
+        )
 
-    # Remove "All" if other options are selected
-    if "All" in particulars_selected and len(particulars_selected) > 1:
-        st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
-    if "All" in month_selected and len(month_selected) > 1:
-        st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
+        # Multi-select filter for "Month"
+        month_options = list(data["Month"].dropna().unique())
+        month_selected = st.multiselect(
+            "Select Month:", ["All"] + month_options, 
+            default=st.session_state["month_selected"], 
+            key="month_selected"
+        )
 
-# Apply filters
-filtered_data = data.copy()
-if "All" not in st.session_state["particulars_selected"]:
-    filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
-if "All" not in st.session_state["month_selected"]:
-    filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
+        # Reset Button
+        st.button("🔄 Reset Filters", on_click=reset_filters)
 
-# Display error message if no matching data
-if filtered_data.empty:
-    st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
-else:
-    # --- Display Data Table & Trends ---
-    with col_content:
-        st.header("📊 Data Table & Trends")
+        # Remove "All" if other options are selected
+        if "All" in particulars_selected and len(particulars_selected) > 1:
+            st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
+        if "All" in month_selected and len(month_selected) > 1:
+            st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
 
-        # Display formatted table
-        st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
-            [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
-        ), height=400)
+    # Apply filters
+    filtered_data = data.copy()
+    if "All" not in st.session_state["particulars_selected"]:
+        filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
+    if "All" not in st.session_state["month_selected"]:
+        filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
 
-        # Trend Chart for Selected Particulars
-        if "All" not in st.session_state["particulars_selected"]:
-            fig = px.line(filtered_data, x="Month", y="Rs", 
-                          title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
-                          template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+    # Display error message if no matching data
+    if filtered_data.empty:
+        st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
+    else:
+        with col_content:
+            st.subheader("📊 Data Table & Trends")
 
-# --- NPA Trends ---
-st.header("📉 NPA Trends")
+            # Display formatted table
+            st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
+                [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
+            ), height=400)
 
-# Validate NPA Data Columns
-required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
-if required_npa_columns.issubset(npa_data.columns):
-    # Create a 2-column layout for charts
-    col1, col2 = st.columns(2)
+            # Trend Chart for Selected Particulars
+            if "All" not in st.session_state["particulars_selected"]:
+                fig = px.line(filtered_data, x="Month", y="Rs", 
+                              title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
+                              template="plotly_white")
+                st.plotly_chart(fig, use_container_width=True)
 
-    with col1:
-        fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
-                       title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
-        st.plotly_chart(fig1, use_container_width=True)
+### --- NPA Trends Tab ---
+with tab2:
+    st.header("📉 NPA Trends")
 
-    with col2:
-        fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
-                       title="📊 Net NPA To Net Advances Trend", template="plotly_white")
-        st.plotly_chart(fig2, use_container_width=True)
+    # Validate NPA Data Columns
+    required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
+    if required_npa_columns.issubset(npa_data.columns):
+        # Create a 2-column layout for charts
+        col1, col2 = st.columns(2)
 
-    # Bar Chart Comparing Gross & Net NPA
-    fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                  barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
-    st.plotly_chart(fig3, use_container_width=True)
-else:
-    st.error("⚠️ NPA data is missing required columns!")
+        with col1:
+            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
+                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col2:
+            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
+                           title="📊 Net NPA To Net Advances Trend", template="plotly_white")
+            st.plotly_chart(fig2, use_container_width=True)
+
+        # Bar Chart Comparing Gross & Net NPA
+        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+                      barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
+        st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.error("⚠️ NPA data is missing required columns!")
