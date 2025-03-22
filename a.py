@@ -52,19 +52,6 @@ def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
 
-# Custom CSS for UI styling
-st.markdown("""
-    <style>
-        .main {background-color: #f4f4f9;}
-        div.stTitle {color: #2c3e50; text-align: center; font-size: 30px; font-weight: bold;}
-        div.block-container {padding: 20px;}
-        .stDataFrame {border-radius: 10px; overflow: hidden;}
-        .stButton > button {background-color: #3498db; color: white; border-radius: 10px; padding: 5px 10px;}
-        .stMultiSelect > div {border-radius: 10px;}
-        .stError {color: red;}
-    </style>
-    """, unsafe_allow_html=True)
-
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
@@ -106,12 +93,23 @@ with tab1:
         if "All" in month_selected and len(month_selected) > 1:
             st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
 
-    # Apply filters
-    filtered_data = data.copy()
-    if "All" not in st.session_state["particulars_selected"]:
-        filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
-    if "All" not in st.session_state["month_selected"]:
-        filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
+        # Apply filters
+        filtered_data = data.copy()
+        if "All" not in st.session_state["particulars_selected"]:
+            filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
+        if "All" not in st.session_state["month_selected"]:
+            filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
+
+        # Convert **filtered** data to CSV for download
+        csv_data = filtered_data.to_csv(index=False).encode("utf-8")
+
+        # Download Button for Filtered Data (PLACED BACK HERE)
+        st.download_button(
+            label="📥 Download Filtered Data",
+            data=csv_data,
+            file_name="filtered_financial_data.csv",
+            mime="text/csv",
+        )
 
     with col_content:
         st.subheader("📊 Data Table & Trends")
@@ -131,17 +129,6 @@ with tab1:
                               title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
                               template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
-
-        # Convert only **filtered** data to CSV for download
-        csv_data = filtered_data.to_csv(index=False).encode("utf-8")
-
-        # Download Button for Filtered Data
-        st.download_button(
-            label="📥 Download Filtered Data",
-            data=csv_data,
-            file_name="filtered_financial_data.csv",
-            mime="text/csv",
-        )
 
 ### --- NPA Trends Tab ---
 with tab2:
