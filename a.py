@@ -18,18 +18,28 @@ def fetch_excel_from_github(url):
     return response.content  # Cache only raw file content (bytes)
 
 # Load Excel file from GitHub
-excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
-xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
+try:
+    excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
+    xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
+except requests.exceptions.RequestException as e:
+    st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
+    st.stop()  # Stop execution if data cannot be fetched
 
 # Parse "Data" sheet
-raw_data = xls.parse("Data")
-
-# Clean data by dropping unwanted columns
-columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
-data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
+try:
+    raw_data = xls.parse("Data")
+    columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
+    data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
+except Exception as e:
+    st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
+    st.stop()
 
 # Parse "Sheet1" (NPA Data)
-npa_data = xls.parse("Sheet1")
+try:
+    npa_data = xls.parse("Sheet1")
+except Exception as e:
+    st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
+    st.stop()
 
 # Initialize session state variables if not already set
 if "particulars_selected" not in st.session_state:
@@ -37,7 +47,7 @@ if "particulars_selected" not in st.session_state:
 if "month_selected" not in st.session_state:
     st.session_state["month_selected"] = ["All"]
 
-# Function to reset filters (MUST be inside a callback)
+# Function to reset filters (must be inside a callback)
 def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
@@ -51,6 +61,7 @@ st.markdown("""
         .stDataFrame {border-radius: 10px; overflow: hidden;}
         .stButton > button {background-color: #3498db; color: white; border-radius: 10px; padding: 5px 10px;}
         .stMultiSelect > div {border-radius: 10px;}
+        .stError {color: red;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -95,21 +106,25 @@ if "All" not in st.session_state["particulars_selected"]:
 if "All" not in st.session_state["month_selected"]:
     filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
 
-# --- Display Data Table & Trends ---
-with col_content:
-    st.header("📊 Data Table & Trends")
+# Display error message if no matching data
+if filtered_data.empty:
+    st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
+else:
+    # --- Display Data Table & Trends ---
+    with col_content:
+        st.header("📊 Data Table & Trends")
 
-    # Display formatted table
-    st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
-        [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
-    ), height=400)
+        # Display formatted table
+        st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
+            [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
+        ), height=400)
 
-    # Trend Chart for Selected Particulars
-    if "All" not in st.session_state["particulars_selected"] and not filtered_data.empty:
-        fig = px.line(filtered_data, x="Month", y="Rs", 
-                      title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
-                      template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
+        # Trend Chart for Selected Particulars
+        if "All" not in st.session_state["particulars_selected"]:
+            fig = px.line(filtered_data, x="Month", y="Rs", 
+                          title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
+                          template="plotly_white")
+            st.plotly_chart(fig, use_container_width=True)
 
 # --- NPA Trends ---
 st.header("📉 NPA Trends")
