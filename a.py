@@ -26,13 +26,9 @@ except requests.exceptions.RequestException as e:
     st.stop()
 
 # Parse "Data" sheet
-try:
-    raw_data = xls.parse("Data")
-    columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
-    data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
-except Exception as e:
-    st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
-    st.stop()
+raw_data = xls.parse("Data")
+columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
+data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
 
 # Initialize session state variables
 if "particulars_selected" not in st.session_state:
@@ -88,6 +84,23 @@ with tab1:
         # Reset Button
         st.button("🔄 Reset Filters", on_click=reset_filters)
 
+        # 📥 Small Download Button (Below Reset)
+        if not data.empty:
+            st.markdown(
+                "<style>.small-btn {text-align: center; padding: 5px;}</style>",
+                unsafe_allow_html=True,
+            )
+            excel_data = convert_df_to_excel(data)
+            st.download_button(
+                label="📥 Download Excel",
+                data=excel_data,
+                file_name="filtered_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Click to download the filtered data",
+                key="download_filtered_data",
+                use_container_width=True,
+            )
+
         # Remove "All" if other options are selected
         if "All" in particulars_selected and len(particulars_selected) > 1:
             st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
@@ -113,18 +126,6 @@ with tab1:
                 [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
             ), height=400)
 
-            # Fancy Download Button for Excel
-            st.markdown("---")
-            st.subheader("📥 Download Filtered Data")
-            excel_data = convert_df_to_excel(filtered_data)
-            st.download_button(
-                label="📥 Download as Excel",
-                data=excel_data,
-                file_name="filtered_data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                help="Click to download the filtered data in Excel format 🎉",
-            )
-
             # Trend Chart for Selected Particulars
             if "All" not in st.session_state["particulars_selected"]:
                 fig = px.line(filtered_data, x="Month", y="Rs", 
@@ -136,25 +137,29 @@ with tab1:
 with tab2:
     st.header("📉 NPA Trends")
 
-    # Validate NPA Data Columns
-    required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
-    if required_npa_columns.issubset(npa_data.columns):
-        # Create a 2-column layout for charts
-        col1, col2 = st.columns(2)
+    # Parse "NPA Data" sheet
+    try:
+        npa_data = xls.parse("Sheet1")
+        required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
+        if required_npa_columns.issubset(npa_data.columns):
+            # Create a 2-column layout for charts
+            col1, col2 = st.columns(2)
 
-        with col1:
-            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
-                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
-            st.plotly_chart(fig1, use_container_width=True)
+            with col1:
+                fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
+                               title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
+                st.plotly_chart(fig1, use_container_width=True)
 
-        with col2:
-            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
-                           title="📊 Net NPA To Net Advances Trend", template="plotly_white")
-            st.plotly_chart(fig2, use_container_width=True)
+            with col2:
+                fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
+                               title="📊 Net NPA To Net Advances Trend", template="plotly_white")
+                st.plotly_chart(fig2, use_container_width=True)
 
-        # Bar Chart Comparing Gross & Net NPA
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                      barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.error("⚠️ NPA data is missing required columns!")
+            # Bar Chart Comparing Gross & Net NPA
+            fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+                          barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.error("⚠️ NPA data is missing required columns!")
+    except Exception as e:
+        st.error(f"⚠️ Error parsing 'NPA Data' sheet: {e}")
