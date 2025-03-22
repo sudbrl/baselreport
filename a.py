@@ -5,152 +5,111 @@ import plotly.express as px
 # Set page configuration
 st.set_page_config(layout="wide", page_title="Financial Dashboard")
 
-# Load data
-file_path = "Basel Data JBBL (1).xlsm"
-xls = pd.ExcelFile(file_path)
+# Function to load Excel file
+@st.cache_data
+def load_data(file):
+    return pd.ExcelFile(file)
 
-# Parse "Data" sheet and filter columns
+# Load file from GitHub (default) or allow upload
+github_file_url = "https://raw.githubusercontent.com/sudbrl/baselreport/main/baseldata.xlsm"
+uploaded_file = st.file_uploader("Upload Basel Data (XLSM)", type=["xlsm"])
+
+xls = load_data(uploaded_file if uploaded_file else github_file_url)
+
+# Parse "Data" sheet
 raw_data = xls.parse("Data")
+
+# Clean data by dropping unwanted columns
 columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
 data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
 
 # Parse "Sheet1" (NPA Data)
 npa_data = xls.parse("Sheet1")
 
-# Custom CSS for better visuals
-st.markdown(
-    """
+# Custom CSS for UI styling
+st.markdown("""
     <style>
         .main {background-color: #f4f4f9;}
         div.stTitle {color: #2c3e50; text-align: center; font-size: 30px; font-weight: bold;}
         div.block-container {padding: 20px;}
-        .stButton button {width: 100%; background-color: #2c3e50; color: white; font-weight: bold; border-radius: 5px;}
-        
-        /* Data Table Styling */
-        .styled-table {
-            width: 100%;
-            border-collapse: collapse;
-            border-radius: 10px;
-            overflow: hidden;
-            font-size: 14px;
-            text-align: left;
-        }
-        .styled-table th, .styled-table td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-        }
-        .styled-table th {
-            background-color: #2c3e50;
-            color: white;
-        }
-        .styled-table tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        .styled-table tr:hover {
-            background-color: #ddd;
-        }
+        .stDataFrame {border-radius: 10px; overflow: hidden;}
+        .stButton > button {background-color: #3498db; color: white; border-radius: 10px; padding: 5px 10px;}
+        .stSelectbox > div {border-radius: 10px;}
     </style>
-    """, unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
-# Tabs for different datasets
-tab1, tab2 = st.tabs(["📈 Financial Data", "📉 NPA Trends"])
+# Create a 2-column layout (Filters Left, Data/Charts Right)
+col_filters, col_content = st.columns([1, 3])
 
-### --- Financial Data Tab ---
-with tab1:
-    st.header("Financial Data Overview")
+with col_filters:
+    st.header("🔍 Filters")
 
-    # Create Two-Column Layout
-    left_col, right_col = st.columns([1, 3])
+    # Multi-select filter for "Particulars"
+    particulars_options = list(data["Particulars"].dropna().unique())
+    particulars_selected = st.multiselect("Select Particulars:", ["All"] + particulars_options, default=["All"])
 
-    # Left Column: Filters
-    with left_col:
-        st.subheader("🔍 Filters")
-        
-        # Dropdown Filters with "All" and Auto-Remove Logic
-        particulars_options = ["All"] + list(data["Particulars"].dropna().unique())
-        selected_particulars = st.multiselect("Select Particulars:", particulars_options, default=["All"])
+    # Multi-select filter for "Month"
+    month_options = list(data["Month"].dropna().unique())
+    month_selected = st.multiselect("Select Month:", ["All"] + month_options, default=["All"])
 
-        # Remove "All" if other selections are made
-        if "All" in selected_particulars and len(selected_particulars) > 1:
-            selected_particulars.remove("All")
+    # Reset button to clear filters
+    if st.button("🔄 Reset Filters"):
+        particulars_selected, month_selected = ["All"], ["All"]
 
-        date_options = ["All"] + list(data["Month"].dropna().unique())
-        selected_dates = st.multiselect("Select Month:", date_options, default=["All"])
+    # Remove "All" if other options are selected
+    if "All" in particulars_selected and len(particulars_selected) > 1:
+        particulars_selected.remove("All")
+    if "All" in month_selected and len(month_selected) > 1:
+        month_selected.remove("All")
 
-        # Remove "All" if other selections are made
-        if "All" in selected_dates and len(selected_dates) > 1:
-            selected_dates.remove("All")
+# Apply filters
+filtered_data = data.copy()
+if "All" not in particulars_selected:
+    filtered_data = filtered_data[filtered_data["Particulars"].isin(particulars_selected)]
+if "All" not in month_selected:
+    filtered_data = filtered_data[filtered_data["Month"].isin(month_selected)]
 
-        # Reset Button
-        if st.button("🔄 Reset Filters"):
-            selected_particulars = ["All"]
-            selected_dates = ["All"]
+# --- Display Data Table & Trends ---
+with col_content:
+    st.header("📊 Data Table & Trends")
 
-    # Apply Filters
-    filtered_data = data.copy()
-    if "All" not in selected_particulars:
-        filtered_data = filtered_data[filtered_data["Particulars"].isin(selected_particulars)]
-    if "All" not in selected_dates:
-        filtered_data = filtered_data[filtered_data["Month"].isin(selected_dates)]
+    # Display formatted table
+    st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
+        [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
+    ), height=400)
 
-    # Right Column: Display Data & Charts
-    with right_col:
-        st.subheader("📊 Data Table & Trends")
+    # Trend Chart for Selected Particulars
+    if "All" not in particulars_selected and not filtered_data.empty:
+        fig = px.line(filtered_data, x="Month", y="Rs", 
+                      title=f"📈 Trend for {', '.join(particulars_selected)}", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Display DataFrame with Custom Styling
-        if not filtered_data.empty:
-            st.markdown(f"""
-            <div style="overflow-x:auto;">
-                <table class="styled-table">
-                    <thead>
-                        <tr>{"".join([f"<th>{col}</th>" for col in filtered_data.columns])}</tr>
-                    </thead>
-                    <tbody>
-                        {"".join(["<tr>" + "".join([f"<td>{row[col]}</td>" for col in filtered_data.columns]) + "</tr>" for _, row in filtered_data.iterrows()])}
-                    </tbody>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ No data available for selected filters.")
+# --- NPA Trends ---
+st.header("📉 NPA Trends")
 
-        # Trend Chart for Selected Particulars
-        if "All" not in selected_particulars and selected_particulars:
-            fig = px.line(filtered_data, x="Month", y="Rs", color="Particulars",
-                          title="📈 Trend of Selected Particulars", template="plotly_white")
-            st.plotly_chart(fig, use_container_width=True)
+# Validate NPA Data Columns
+required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
+if required_npa_columns.issubset(npa_data.columns):
+    # Create a 2-column layout for charts
+    col1, col2 = st.columns(2)
 
-### --- NPA Trends Tab ---
-with tab2:
-    st.header("📉 NPA Trends")
+    with col1:
+        fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
+                       title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
+        st.plotly_chart(fig1, use_container_width=True)
 
-    # Create Two-Column Layout
-    left_col, right_col = st.columns([1, 3])
+    with col2:
+        fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
+                       title="📊 Net NPA To Net Advances Trend", template="plotly_white")
+        st.plotly_chart(fig2, use_container_width=True)
 
-    with right_col:
-        # Validate NPA Data Columns
-        required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
-        if not required_npa_columns.issubset(npa_data.columns):
-            st.error("❌ NPA data is missing required columns!")
-        else:
-            # Create Two Side-by-Side Line Charts
-            col1, col2 = st.columns(2)
+    # Bar Chart Comparing Gross & Net NPA
+    fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+                  barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
+    st.plotly_chart(fig3, use_container_width=True)
+else:
+    st.error("⚠️ NPA data is missing required columns!")
 
-            with col1:
-                fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
-                               title="📉 Gross NPA To Gross Advances Trend", template="plotly_white")
-                st.plotly_chart(fig1, use_container_width=True)
-
-            with col2:
-                fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
-                               title="📉 Net NPA To Net Advances Trend", template="plotly_white")
-                st.plotly_chart(fig2, use_container_width=True)
-
-            # Bar Chart Comparing Gross & Net NPA
-            fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                          barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
-            st.plotly_chart(fig3, use_container_width=True)
