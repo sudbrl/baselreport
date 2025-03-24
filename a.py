@@ -41,7 +41,7 @@ except Exception as e:
     st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
     st.stop()
 
-# Initialize session state variables if not already set
+# Initialize session state variables
 if "particulars_selected" not in st.session_state:
     st.session_state["particulars_selected"] = ["All"]
 if "month_selected" not in st.session_state:
@@ -51,17 +51,6 @@ if "month_selected" not in st.session_state:
 def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
-
-# Function to format values properly for Cr and % display
-def format_label(value):
-    if isinstance(value, (int, float)):
-        if abs(value) < 1 and value != 0:  
-            return f"{value * 100:.1f}%"  # Convert decimals to percentages
-        elif abs(value) >= 1_00_00_000:  
-            return f"{value / 1_00_00_000:.2f} Cr"  # Convert to Crores (correctly)
-        else:
-            return f"{value:,.0f}"  # Normal number formatting
-    return value  
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
@@ -111,6 +100,12 @@ with tab1:
         if "All" not in st.session_state["month_selected"]:
             filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
 
+        # Convert "Rs" column to numeric safely
+        filtered_data["Rs"] = pd.to_numeric(filtered_data["Rs"], errors="coerce").fillna(0)
+
+        # Convert large numbers to Crores
+        filtered_data["Rs"] = filtered_data["Rs"].apply(lambda x: round(x / 1_00_00_000, 2) if x >= 1_00_00_000 else x)
+
         # Convert **filtered** data to CSV for download
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
 
@@ -129,27 +124,56 @@ with tab1:
         if filtered_data.empty:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
-            # Data label toggle option
-            show_data_labels = st.checkbox("📊 Show Data Labels")
+            # Show "Amount in Cr" only if numbers are in Crores
+            if filtered_data["Rs"].max() >= 1:
+                st.caption("💰 Amount in Cr")
 
-            # Convert Rs to Cr directly in dataset
-            filtered_data["Rs"] = filtered_data["Rs"].apply(lambda x: x / 1_00_00_000 if x >= 1_00_00_000 else x)
+            # Display formatted table
+            st.dataframe(filtered_data, height=400)
 
-            # Plot Financial Trend with Correct Labels
-            fig = px.line(
-                filtered_data, x="Month", y="Rs", 
-                title="📈 Financial Trend", template="plotly_white",
-                labels={"Rs": "Amount (Cr)"}
-            )
+            # Toggle for Data Labels
+            show_labels = st.checkbox("📝 Show Data Labels", value=True)
 
-            # Ensure data labels are formatted correctly
-            if show_data_labels:
-                formatted_labels = [format_label(v) for v in filtered_data["Rs"]]
-                fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
+            # Trend Chart for Selected Particulars
+            if "All" not in st.session_state["particulars_selected"]:
+                fig = px.line(filtered_data, x="Month", y="Rs", 
+                              title="📈 Financial Trend", 
+                              text="Rs" if show_labels else None, 
+                              template="plotly_white")
 
-            # Display chart
-            st.plotly_chart(fig, use_container_width=True)
+                fig.update_traces(textposition="top center")
 
-            # Show "Amount in Cr" label only when applicable
-            if any(filtered_data["Rs"] >= 1):
-                st.markdown("💰 **Amount in Cr**", unsafe_allow_html=True)
+                st.plotly_chart(fig, use_container_width=True)
+
+### --- NPA Trends Tab ---
+with tab2:
+    st.header("📉 NPA Trends")
+
+    # Validate NPA Data Columns
+    required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
+    if required_npa_columns.issubset(npa_data.columns):
+
+        # Data Labels Toggle for NPA Charts
+        show_npa_labels = st.checkbox("📝 Show NPA Data Labels", value=True)
+
+        # Create a 2-column layout for charts
+        col1, col2 = st.columns(2)
+
+        with col1:
+            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
+                           title="📊 Gross NPA To Gross Advances Trend", 
+                           text="Gross Npa To Gross Advances" if show_npa_labels else None, 
+                           template="plotly_white")
+            fig1.update_traces(texttemplate="%{text:.1%}", textposition="top center")
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col2:
+            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
+                           title="📊 Net NPA To Net Advances Trend", 
+                           text="Net Npa To Net Advances" if show_npa_labels else None, 
+                           template="plotly_white")
+            fig2.update_traces(texttemplate="%{text:.1%}", textposition="top center")
+            st.plotly_chart(fig2, use_container_width=True)
+
+    else:
+        st.error("⚠️ NPA data is missing required columns!")
