@@ -4,70 +4,34 @@ import plotly.express as px
 import requests
 from io import BytesIO
 
-# Set Streamlit page configuration
+# Set page configuration
 st.set_page_config(layout="wide", page_title="Financial Dashboard")
 
-# GitHub RAW file URL (Make sure it's correct)
+# GitHub file URL (RAW version)
 GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
 
-# Function to fetch Excel file from GitHub with better error handling
+# Function to fetch Excel file from GitHub
 @st.cache_data
 def fetch_excel_from_github(url):
-    try:
-        st.write(f"📡 Fetching data from: {url}")  # Debugging output
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            st.error(f"⚠️ Failed to fetch file! HTTP Status: {response.status_code}")
-            st.stop()
-        st.write("✅ File fetched successfully!")
-        return response.content
-    except requests.exceptions.RequestException as e:
-        st.error(f"⚠️ Network error: {e}")
-        st.stop()
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.content  # Cache only raw file content (bytes)
 
 # Load Excel file from GitHub
 try:
     excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
-    xls = pd.ExcelFile(BytesIO(excel_bytes))
-    st.success("✅ Excel file loaded successfully!")
-    st.write(f"📄 Sheets Available: {xls.sheet_names}")  # Debugging output
-except Exception as e:
-    st.error(f"⚠️ Error loading Excel file: {e}")
-    st.stop()
+    xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
+except requests.exceptions.RequestException as e:
+    st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
+    st.stop()  # Stop execution if data cannot be fetched
 
 # Parse "Data" sheet
 try:
     raw_data = xls.parse("Data")
     columns_to_drop = ["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"]
     data = raw_data.drop(columns=[col for col in columns_to_drop if col in raw_data.columns])
-    st.write("✅ 'Data' sheet loaded successfully!")  # Debugging output
 except Exception as e:
     st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
-    st.stop()
-
-# Extract NPA-related data from "Data" sheet
-try:
-    # Debug: Show available column names
-    st.write("📄 Available Columns in 'Data' Sheet:", data.columns.tolist())
-
-    # Ensure required columns exist
-    if "Particulars" not in data.columns or "Month" not in data.columns or "Rs" not in data.columns:
-        st.error("⚠️ Required columns ('Particulars', 'Month', 'Rs') not found in 'Data' sheet!")
-        st.stop()
-
-    # Filter NPA-related data
-    npa_filtered = data[data["Particulars"].isin(["Gross NPA To Gross Advances", "Net NPA To Net Advances"])]
-
-    # Pivot data to get 'Gross NPA' & 'Net NPA' as separate columns
-    npa_data = npa_filtered.pivot(index="Month", columns="Particulars", values="Rs").reset_index()
-
-    # Rename columns for better readability
-    npa_data = npa_data.rename(columns={"Gross NPA To Gross Advances": "Gross NPA", "Net NPA To Net Advances": "Net NPA"})
-
-    st.write("✅ NPA Data Extracted Successfully!", npa_data.head())  # Debugging output
-
-except Exception as e:
-    st.error(f"⚠️ Error extracting NPA data from 'Data' sheet: {e}")
     st.stop()
 
 # Initialize session state variables if not already set
@@ -150,21 +114,54 @@ with tab1:
             # Display formatted table
             st.dataframe(filtered_data)
 
+            # Trend Chart for Selected Particulars (Multiple Trends)
+            if "All" not in st.session_state["particulars_selected"]:
+                fig = px.line(
+                    filtered_data, x="Month", y="Rs", color="Particulars",
+                    title="📈 Trends for Selected Particulars", template="plotly_white"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
 ### --- NPA Trends Tab ---
 with tab2:
-    st.header("📉 NPA Trends (From 'Data' Sheet)")
+    st.header("📉 NPA Trends")
 
-    if not npa_data.empty:
-        # Create trend charts for Gross & Net NPA
-        fig1 = px.line(npa_data, x="Month", y="Gross NPA", title="📊 Gross NPA To Gross Advances Trend", markers=True)
-        fig2 = px.line(npa_data, x="Month", y="Net NPA", title="📊 Net NPA To Net Advances Trend", markers=True)
+    try:
+        # Convert 'Particulars' column to lowercase for case-insensitive matching
+        data["Particulars"] = data["Particulars"].str.strip().str.lower()
 
-        st.plotly_chart(fig1, use_container_width=True)
-        st.plotly_chart(fig2, use_container_width=True)
+        # Define the correct case-insensitive search terms
+        npa_keywords = ["gross npa to gross advances", "net npa to net advances"]
+
+        # Filter data using case-insensitive search
+        npa_filtered = data[data["Particulars"].isin(npa_keywords)]
+
+        # Pivot the data
+        npa_data = npa_filtered.pivot(index="Month", columns="Particulars", values="Rs").reset_index()
+
+        # Rename columns for better readability
+        npa_data = npa_data.rename(columns={
+            "gross npa to gross advances": "Gross NPA",
+            "net npa to net advances": "Net NPA"
+        })
+
+        # Create a 2-column layout for charts
+        col1, col2 = st.columns(2)
+
+        with col1:
+            fig1 = px.line(npa_data, x="Month", y="Gross NPA",
+                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col2:
+            fig2 = px.line(npa_data, x="Month", y="Net NPA",
+                           title="📊 Net NPA To Net Advances Trend", template="plotly_white")
+            st.plotly_chart(fig2, use_container_width=True)
 
         # Bar Chart Comparing Gross & Net NPA
-        fig3 = px.bar(npa_data, x="Month", y=["Gross NPA", "Net NPA"], 
-                      barmode='group', title="📊 Comparison of Gross & Net NPA")
+        fig3 = px.bar(npa_data, x="Month", y=["Gross NPA", "Net NPA"],
+                      barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
         st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.error("⚠️ NPA data is missing required columns in the 'Data' sheet!")
+
+    except Exception as e:
+        st.error(f"⚠️ Error extracting NPA data from 'Data' sheet: {e}")
