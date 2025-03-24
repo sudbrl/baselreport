@@ -23,7 +23,7 @@ try:
     xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
 except requests.exceptions.RequestException as e:
     st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
-    st.stop()  # Stop execution if data cannot be fetched
+    st.stop()
 
 # Parse "Data" sheet
 try:
@@ -51,6 +51,15 @@ if "month_selected" not in st.session_state:
 def reset_filters():
     st.session_state["particulars_selected"] = ["All"]
     st.session_state["month_selected"] = ["All"]
+
+# Function to format numbers and percentages
+def format_values(value):
+    if isinstance(value, (int, float)):
+        if abs(value) < 1 and value != 0:  # Assuming percentage values are stored as decimals
+            return f"{value:.2%}"  # Convert decimal to percentage format
+        else:
+            return f"{value:,.0f}"  # Format large numbers with thousand separators
+    return value  # Return original if not a number
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
@@ -103,7 +112,7 @@ with tab1:
         # Convert **filtered** data to CSV for download
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
 
-        # Download Button for Filtered Data (PLACED BACK HERE)
+        # Download Button for Filtered Data
         st.download_button(
             label="📥 Download Filtered Data",
             data=csv_data,
@@ -118,10 +127,17 @@ with tab1:
         if filtered_data.empty:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
+            # Apply formatting to the filtered data
+            styled_data = filtered_data.applymap(format_values)
+
             # Display formatted table
-            st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
-                [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
-            ), height=400)
+            st.dataframe(
+                styled_data.style.set_properties(**{'text-align': 'left'})
+                .set_table_styles(
+                    [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
+                ),
+                height=400
+            )
 
             # Trend Chart for Selected Particulars
             if "All" not in st.session_state["particulars_selected"]:
@@ -137,6 +153,11 @@ with tab2:
     # Validate NPA Data Columns
     required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
     if required_npa_columns.issubset(npa_data.columns):
+        # Apply formatting to NPA data
+        styled_npa_data = npa_data.copy()
+        styled_npa_data[["Gross Npa To Gross Advances", "Net Npa To Net Advances"]] = \
+            styled_npa_data[["Gross Npa To Gross Advances", "Net Npa To Net Advances"]].applymap(format_values)
+
         # Create a 2-column layout for charts
         col1, col2 = st.columns(2)
 
