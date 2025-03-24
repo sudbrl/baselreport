@@ -10,20 +10,19 @@ st.set_page_config(layout="wide", page_title="Financial Dashboard")
 # GitHub file URL (RAW version)
 GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
 
-# Function to fetch Excel file from GitHub
+# Function to fetch and process the Excel file from GitHub
 @st.cache_data
 def fetch_excel_from_github(url):
     response = requests.get(url)
     response.raise_for_status()
-    return response.content  # Cache only raw file content (bytes)
+    return pd.ExcelFile(BytesIO(response.content))  # Cache processed Excel file
 
 # Load Excel file from GitHub
 try:
-    excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
-    xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
+    xls = fetch_excel_from_github(GITHUB_FILE_URL)
 except requests.exceptions.RequestException as e:
     st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
-    st.stop()  # Stop execution if data cannot be fetched
+    st.stop()
 
 # Parse "Data" sheet
 try:
@@ -34,11 +33,12 @@ except Exception as e:
     st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
     st.stop()
 
-# Parse "Sheet1" (NPA Data)
+# Extract NPA-related data from "Data" sheet
 try:
-    npa_data = xls.parse("Sheet1")
+    required_npa_columns = ["Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"]
+    npa_data = data[required_npa_columns].dropna()
 except Exception as e:
-    st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
+    st.error(f"⚠️ Error extracting NPA data from 'Data' sheet: {e}")
     st.stop()
 
 # Initialize session state variables if not already set
@@ -103,7 +103,7 @@ with tab1:
         # Convert **filtered** data to CSV for download
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
 
-        # Download Button for Filtered Data (PLACED BACK HERE)
+        # Download Button for Filtered Data
         st.download_button(
             label="📥 Download Filtered Data",
             data=csv_data,
@@ -123,31 +123,41 @@ with tab1:
                 [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
             ), height=400)
 
-            # Trend Chart for Selected Particulars
+            # Trend Charts for Selected Particulars
             if "All" not in st.session_state["particulars_selected"]:
-                fig = px.line(filtered_data, x="Month", y="Rs", 
-                              title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
-                              template="plotly_white")
-                st.plotly_chart(fig, use_container_width=True)
+                st.subheader("📈 Trend Charts for Selected Particulars")
+
+                # Creating multiple trend charts
+                for particular in st.session_state["particulars_selected"]:
+                    particular_data = filtered_data[filtered_data["Particulars"] == particular]
+
+                    if not particular_data.empty:
+                        fig = px.line(
+                            particular_data,
+                            x="Month",
+                            y="Rs",
+                            title=f"📈 Trend for {particular}",
+                            template="plotly_white",
+                            markers=True,
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
 
 ### --- NPA Trends Tab ---
 with tab2:
-    st.header("📉 NPA Trends")
+    st.header("📉 NPA Trends (From 'Data' Sheet)")
 
-    # Validate NPA Data Columns
-    required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
-    if required_npa_columns.issubset(npa_data.columns):
+    if not npa_data.empty:
         # Create a 2-column layout for charts
         col1, col2 = st.columns(2)
 
         with col1:
             fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
-                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
+                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white", markers=True)
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
             fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
-                           title="📊 Net NPA To Net Advances Trend", template="plotly_white")
+                           title="📊 Net NPA To Net Advances Trend", template="plotly_white", markers=True)
             st.plotly_chart(fig2, use_container_width=True)
 
         # Bar Chart Comparing Gross & Net NPA
@@ -155,4 +165,4 @@ with tab2:
                       barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
         st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.error("⚠️ NPA data is missing required columns!")
+        st.error("⚠️ NPA data is missing required columns in the 'Data' sheet!")
