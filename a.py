@@ -34,6 +34,13 @@ except Exception as e:
     st.error(f"⚠️ Error parsing 'Data' sheet: {e}")
     st.stop()
 
+# Parse "Sheet1" (NPA Data)
+try:
+    npa_data = xls.parse("Sheet1")
+except Exception as e:
+    st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
+    st.stop()
+
 # Initialize session state variables if not already set
 if "particulars_selected" not in st.session_state:
     st.session_state["particulars_selected"] = ["All"]
@@ -96,7 +103,7 @@ with tab1:
         # Convert **filtered** data to CSV for download
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
 
-        # Download Button for Filtered Data
+        # Download Button for Filtered Data (PLACED BACK HERE)
         st.download_button(
             label="📥 Download Filtered Data",
             data=csv_data,
@@ -112,56 +119,40 @@ with tab1:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
             # Display formatted table
-            st.dataframe(filtered_data)
+            st.dataframe(filtered_data.style.set_properties(**{'text-align': 'left'}).set_table_styles(
+                [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
+            ), height=400)
 
-            # Trend Chart for Selected Particulars (Multiple Trends)
+            # Trend Chart for Selected Particulars
             if "All" not in st.session_state["particulars_selected"]:
-                fig = px.line(
-                    filtered_data, x="Month", y="Rs", color="Particulars",
-                    title="📈 Trends for Selected Particulars", template="plotly_white"
-                )
+                fig = px.line(filtered_data, x="Month", y="Rs", 
+                              title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
+                              template="plotly_white")
                 st.plotly_chart(fig, use_container_width=True)
 
 ### --- NPA Trends Tab ---
 with tab2:
     st.header("📉 NPA Trends")
 
-    try:
-        # Convert 'Particulars' column to lowercase for case-insensitive matching
-        data["Particulars"] = data["Particulars"].str.strip().str.lower()
-
-        # Define the correct case-insensitive search terms
-        npa_keywords = ["gross npa to gross advances", "net npa to net advances"]
-
-        # Filter data using case-insensitive search
-        npa_filtered = data[data["Particulars"].isin(npa_keywords)]
-
-        # Pivot the data
-        npa_data = npa_filtered.pivot(index="Month", columns="Particulars", values="Rs").reset_index()
-
-        # Rename columns for better readability
-        npa_data = npa_data.rename(columns={
-            "gross npa to gross advances": "Gross NPA",
-            "net npa to net advances": "Net NPA"
-        })
-
+    # Validate NPA Data Columns
+    required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
+    if required_npa_columns.issubset(npa_data.columns):
         # Create a 2-column layout for charts
         col1, col2 = st.columns(2)
 
         with col1:
-            fig1 = px.line(npa_data, x="Month", y="Gross NPA",
+            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
                            title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
-            fig2 = px.line(npa_data, x="Month", y="Net NPA",
+            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
                            title="📊 Net NPA To Net Advances Trend", template="plotly_white")
             st.plotly_chart(fig2, use_container_width=True)
 
         # Bar Chart Comparing Gross & Net NPA
-        fig3 = px.bar(npa_data, x="Month", y=["Gross NPA", "Net NPA"],
+        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
                       barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
         st.plotly_chart(fig3, use_container_width=True)
-
-    except Exception as e:
-        st.error(f"⚠️ Error extracting NPA data from 'Data' sheet: {e}")
+    else:
+        st.error("⚠️ NPA data is missing required columns!")
