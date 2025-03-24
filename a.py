@@ -28,10 +28,15 @@ except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
 
-# Function to format values for display
+# Function to format values (Percentage or Crores)
 def format_label(value):
     if isinstance(value, (int, float)):
-        return f"{value * 100:.1f}%" if abs(value) < 1 and value != 0 else f"{value:,.0f}"  
+        if abs(value) < 1 and value != 0:  
+            return f"{value * 100:.1f}%"  # Convert decimals to percentages (e.g., 0.042 → 4.2%)
+        elif abs(value) >= 1_00_00_000:  
+            return f"{value / 1_00_00_000:.2f} Cr"  # Convert to Crores if >1 crore (e.g., 56,870,000 → 56.87 Cr)
+        else:
+            return f"{value:,.0f}"  # Normal number formatting
     return value  
 
 # Function to apply formatting to data labels
@@ -75,11 +80,16 @@ with tab1:
         if filtered_data.empty:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
-            styled_data = filtered_data.applymap(format_label)
+            # Apply formatting for display
+            styled_data = filtered_data.copy()
+            styled_data["Rs"] = styled_data["Rs"].apply(format_label)
             st.dataframe(styled_data, height=400)
 
             if "All" not in particulars_selected:
                 show_data_labels = st.checkbox("📊 Show Data Labels", key="show_labels_financial")
+
+                # Display "Amount in Cr" as a small text label
+                st.markdown("💰 **Amount in Cr**", unsafe_allow_html=True)
 
                 fig = px.line(filtered_data, x="Month", y="Rs", title="📈 Financial Trend", template="plotly_white")
                 if show_data_labels:
@@ -112,6 +122,8 @@ with tab2:
             st.plotly_chart(fig2, use_container_width=True)
 
         show_data_labels_bar = st.checkbox("📊 Show Data Labels", key="show_labels_bar_npa")
+
+        st.markdown("💰 **Amount in Cr**", unsafe_allow_html=True)  # Label for Crores
 
         fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
                       barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
