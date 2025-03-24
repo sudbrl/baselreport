@@ -41,19 +41,6 @@ except Exception as e:
     st.error(f"⚠️ Error parsing 'Sheet1' (NPA Data): {e}")
     st.stop()
 
-# Initialize session state variables if not already set
-if "particulars_selected" not in st.session_state:
-    st.session_state["particulars_selected"] = ["All"]
-if "month_selected" not in st.session_state:
-    st.session_state["month_selected"] = ["All"]
-if "show_data_labels" not in st.session_state:
-    st.session_state["show_data_labels"] = False  # Default to False
-
-# Function to reset filters
-def reset_filters():
-    st.session_state["particulars_selected"] = ["All"]
-    st.session_state["month_selected"] = ["All"]
-
 # Function to format numbers and percentages
 def format_values(value):
     if isinstance(value, (int, float)):
@@ -65,9 +52,6 @@ def format_values(value):
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
-
-# User Toggle for Data Labels
-st.session_state["show_data_labels"] = st.checkbox("Show Data Labels on Charts", value=st.session_state["show_data_labels"])
 
 # Tabs for different datasets
 tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
@@ -83,30 +67,21 @@ with tab1:
 
         particulars_options = list(data["Particulars"].dropna().unique())
         particulars_selected = st.multiselect(
-            "Select Particulars:", ["All"] + particulars_options, 
-            default=st.session_state["particulars_selected"], 
-            key="particulars_selected"
+            "Select Particulars:", ["All"] + particulars_options, default=["All"]
         )
 
         month_options = list(data["Month"].dropna().unique())
         month_selected = st.multiselect(
-            "Select Month:", ["All"] + month_options, 
-            default=st.session_state["month_selected"], 
-            key="month_selected"
+            "Select Month:", ["All"] + month_options, default=["All"]
         )
 
-        st.button("🔄 Reset Filters", on_click=reset_filters)
-
-        if "All" in particulars_selected and len(particulars_selected) > 1:
-            st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
-        if "All" in month_selected and len(month_selected) > 1:
-            st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
+        st.button("🔄 Reset Filters", on_click=lambda: (st.session_state.update({"particulars_selected": ["All"], "month_selected": ["All"]})))
 
         filtered_data = data.copy()
-        if "All" not in st.session_state["particulars_selected"]:
-            filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
-        if "All" not in st.session_state["month_selected"]:
-            filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
+        if "All" not in particulars_selected:
+            filtered_data = filtered_data[filtered_data["Particulars"].isin(particulars_selected)]
+        if "All" not in month_selected:
+            filtered_data = filtered_data[filtered_data["Month"].isin(month_selected)]
 
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
 
@@ -119,12 +94,14 @@ with tab1:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
             styled_data = filtered_data.applymap(format_values)
-
             st.dataframe(styled_data, height=400)
 
-            if "All" not in st.session_state["particulars_selected"]:
+            if "All" not in particulars_selected:
+                # Data Labels Toggle Above Chart
+                show_data_labels = st.checkbox("📊 Show Data Labels", key="show_labels_financial")
+
                 fig = px.line(filtered_data, x="Month", y="Rs", title="📈 Financial Trend", template="plotly_white")
-                if st.session_state["show_data_labels"]:
+                if show_data_labels:
                     fig.update_traces(text=filtered_data["Rs"], textposition="top center", mode="lines+text")
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -138,19 +115,29 @@ with tab2:
         col1, col2 = st.columns(2)
 
         with col1:
+            # Data Labels Toggle Above Chart
+            show_data_labels_gross = st.checkbox("📊 Show Data Labels", key="show_labels_gross_npa")
+
             fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA Trend", template="plotly_white")
-            if st.session_state["show_data_labels"]:
+            if show_data_labels_gross:
                 fig1.update_traces(text=npa_data["Gross Npa To Gross Advances"], textposition="top center", mode="lines+text")
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
+            # Data Labels Toggle Above Chart
+            show_data_labels_net = st.checkbox("📊 Show Data Labels", key="show_labels_net_npa")
+
             fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA Trend", template="plotly_white")
-            if st.session_state["show_data_labels"]:
+            if show_data_labels_net:
                 fig2.update_traces(text=npa_data["Net Npa To Net Advances"], textposition="top center", mode="lines+text")
             st.plotly_chart(fig2, use_container_width=True)
 
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
-        if st.session_state["show_data_labels"]:
+        # Data Labels Toggle Above Chart
+        show_data_labels_bar = st.checkbox("📊 Show Data Labels", key="show_labels_bar_npa")
+
+        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+                      barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
+        if show_data_labels_bar:
             fig3.update_traces(texttemplate="%{y:.2%}", textposition="outside")
         st.plotly_chart(fig3, use_container_width=True)
 
