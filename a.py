@@ -47,9 +47,25 @@ except Exception as e:
 
 # Extract NPA-related data from "Data" sheet
 try:
-    required_npa_columns = ["Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"]
-    npa_data = data[required_npa_columns].dropna()
-    st.write("✅ NPA data extracted successfully!")  # Debugging output
+    # Debug: Show available column names
+    st.write("📄 Available Columns in 'Data' Sheet:", data.columns.tolist())
+
+    # Ensure required columns exist
+    if "Particulars" not in data.columns or "Month" not in data.columns or "Rs" not in data.columns:
+        st.error("⚠️ Required columns ('Particulars', 'Month', 'Rs') not found in 'Data' sheet!")
+        st.stop()
+
+    # Filter NPA-related data
+    npa_filtered = data[data["Particulars"].isin(["Gross NPA To Gross Advances", "Net NPA To Net Advances"])]
+
+    # Pivot data to get 'Gross NPA' & 'Net NPA' as separate columns
+    npa_data = npa_filtered.pivot(index="Month", columns="Particulars", values="Rs").reset_index()
+
+    # Rename columns for better readability
+    npa_data = npa_data.rename(columns={"Gross NPA To Gross Advances": "Gross NPA", "Net NPA To Net Advances": "Net NPA"})
+
+    st.write("✅ NPA Data Extracted Successfully!", npa_data.head())  # Debugging output
+
 except Exception as e:
     st.error(f"⚠️ Error extracting NPA data from 'Data' sheet: {e}")
     st.stop()
@@ -134,39 +150,20 @@ with tab1:
             # Display formatted table
             st.dataframe(filtered_data)
 
-            # Trend Charts for Selected Particulars
-            if "All" not in st.session_state["particulars_selected"]:
-                st.subheader("📈 Trend Charts for Selected Particulars")
-
-                # Creating multiple trend charts
-                for particular in st.session_state["particulars_selected"]:
-                    particular_data = filtered_data[filtered_data["Particulars"] == particular]
-
-                    if not particular_data.empty:
-                        fig = px.line(
-                            particular_data,
-                            x="Month",
-                            y="Rs",
-                            title=f"📈 Trend for {particular}",
-                            template="plotly_white",
-                            markers=True,
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-
 ### --- NPA Trends Tab ---
 with tab2:
     st.header("📉 NPA Trends (From 'Data' Sheet)")
 
     if not npa_data.empty:
         # Create trend charts for Gross & Net NPA
-        fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA To Gross Advances Trend", markers=True)
-        fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA To Net Advances Trend", markers=True)
+        fig1 = px.line(npa_data, x="Month", y="Gross NPA", title="📊 Gross NPA To Gross Advances Trend", markers=True)
+        fig2 = px.line(npa_data, x="Month", y="Net NPA", title="📊 Net NPA To Net Advances Trend", markers=True)
 
         st.plotly_chart(fig1, use_container_width=True)
         st.plotly_chart(fig2, use_container_width=True)
 
         # Bar Chart Comparing Gross & Net NPA
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+        fig3 = px.bar(npa_data, x="Month", y=["Gross NPA", "Net NPA"], 
                       barmode='group', title="📊 Comparison of Gross & Net NPA")
         st.plotly_chart(fig3, use_container_width=True)
     else:
