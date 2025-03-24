@@ -15,12 +15,12 @@ GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm
 def fetch_excel_from_github(url):
     response = requests.get(url)
     response.raise_for_status()
-    return response.content  # Cache only raw file content (bytes)
+    return response.content
 
 # Load Excel file from GitHub
 try:
     excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
-    xls = pd.ExcelFile(BytesIO(excel_bytes))  # Process the Excel file dynamically
+    xls = pd.ExcelFile(BytesIO(excel_bytes)) 
 except requests.exceptions.RequestException as e:
     st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
     st.stop()
@@ -46,6 +46,8 @@ if "particulars_selected" not in st.session_state:
     st.session_state["particulars_selected"] = ["All"]
 if "month_selected" not in st.session_state:
     st.session_state["month_selected"] = ["All"]
+if "show_data_labels" not in st.session_state:
+    st.session_state["show_data_labels"] = False  # Default to False
 
 # Function to reset filters
 def reset_filters():
@@ -55,14 +57,17 @@ def reset_filters():
 # Function to format numbers and percentages
 def format_values(value):
     if isinstance(value, (int, float)):
-        if abs(value) < 1 and value != 0:  # Assuming percentage values are stored as decimals
-            return f"{value:.2%}"  # Convert decimal to percentage format
+        if abs(value) < 1 and value != 0:
+            return f"{value:.2%}"  
         else:
-            return f"{value:,.0f}"  # Format large numbers with thousand separators
-    return value  # Return original if not a number
+            return f"{value:,.0f}"  
+    return value  
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
+
+# User Toggle for Data Labels
+st.session_state["show_data_labels"] = st.checkbox("Show Data Labels on Charts", value=st.session_state["show_data_labels"])
 
 # Tabs for different datasets
 tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
@@ -71,13 +76,11 @@ tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
 with tab1:
     st.header("📜 Financial Data Overview")
 
-    # Create a 2-column layout (Filters on left, Data/Charts on right)
     col_filters, col_content = st.columns([1, 3])
 
     with col_filters:
         st.subheader("🔍 Filters")
 
-        # Multi-select filter for "Particulars"
         particulars_options = list(data["Particulars"].dropna().unique())
         particulars_selected = st.multiselect(
             "Select Particulars:", ["All"] + particulars_options, 
@@ -85,7 +88,6 @@ with tab1:
             key="particulars_selected"
         )
 
-        # Multi-select filter for "Month"
         month_options = list(data["Month"].dropna().unique())
         month_selected = st.multiselect(
             "Select Month:", ["All"] + month_options, 
@@ -93,87 +95,64 @@ with tab1:
             key="month_selected"
         )
 
-        # Reset Button
         st.button("🔄 Reset Filters", on_click=reset_filters)
 
-        # Remove "All" if other options are selected
         if "All" in particulars_selected and len(particulars_selected) > 1:
             st.session_state["particulars_selected"] = [opt for opt in particulars_selected if opt != "All"]
         if "All" in month_selected and len(month_selected) > 1:
             st.session_state["month_selected"] = [opt for opt in month_selected if opt != "All"]
 
-        # Apply filters
         filtered_data = data.copy()
         if "All" not in st.session_state["particulars_selected"]:
             filtered_data = filtered_data[filtered_data["Particulars"].isin(st.session_state["particulars_selected"])]
         if "All" not in st.session_state["month_selected"]:
             filtered_data = filtered_data[filtered_data["Month"].isin(st.session_state["month_selected"])]
 
-        # Convert **filtered** data to CSV for download
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
 
-        # Download Button for Filtered Data
-        st.download_button(
-            label="📥 Download Filtered Data",
-            data=csv_data,
-            file_name="filtered_financial_data.csv",
-            mime="text/csv",
-        )
+        st.download_button("📥 Download Filtered Data", data=csv_data, file_name="filtered_financial_data.csv", mime="text/csv")
 
     with col_content:
         st.subheader("📊 Data Table & Trends")
 
-        # Display error message if no matching data
         if filtered_data.empty:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
-            # Apply formatting to the filtered data
             styled_data = filtered_data.applymap(format_values)
 
-            # Display formatted table
-            st.dataframe(
-                styled_data.style.set_properties(**{'text-align': 'left'})
-                .set_table_styles(
-                    [{'selector': 'thead th', 'props': [('font-size', '14px'), ('background-color', '#3498db'), ('color', 'white')]}]
-                ),
-                height=400
-            )
+            st.dataframe(styled_data, height=400)
 
-            # Trend Chart for Selected Particulars
             if "All" not in st.session_state["particulars_selected"]:
-                fig = px.line(filtered_data, x="Month", y="Rs", 
-                              title=f"📈 Trend for {', '.join(st.session_state['particulars_selected'])}", 
-                              template="plotly_white")
+                fig = px.line(filtered_data, x="Month", y="Rs", title="📈 Financial Trend", template="plotly_white")
+                if st.session_state["show_data_labels"]:
+                    fig.update_traces(text=filtered_data["Rs"], textposition="top center", mode="lines+text")
                 st.plotly_chart(fig, use_container_width=True)
 
 ### --- NPA Trends Tab ---
 with tab2:
     st.header("📉 NPA Trends")
 
-    # Validate NPA Data Columns
     required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
     if required_npa_columns.issubset(npa_data.columns):
-        # Apply formatting to NPA data
-        styled_npa_data = npa_data.copy()
-        styled_npa_data[["Gross Npa To Gross Advances", "Net Npa To Net Advances"]] = \
-            styled_npa_data[["Gross Npa To Gross Advances", "Net Npa To Net Advances"]].applymap(format_values)
 
-        # Create a 2-column layout for charts
         col1, col2 = st.columns(2)
 
         with col1:
-            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", 
-                           title="📊 Gross NPA To Gross Advances Trend", template="plotly_white")
+            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA Trend", template="plotly_white")
+            if st.session_state["show_data_labels"]:
+                fig1.update_traces(text=npa_data["Gross Npa To Gross Advances"], textposition="top center", mode="lines+text")
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
-            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", 
-                           title="📊 Net NPA To Net Advances Trend", template="plotly_white")
+            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA Trend", template="plotly_white")
+            if st.session_state["show_data_labels"]:
+                fig2.update_traces(text=npa_data["Net Npa To Net Advances"], textposition="top center", mode="lines+text")
             st.plotly_chart(fig2, use_container_width=True)
 
-        # Bar Chart Comparing Gross & Net NPA
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                      barmode='group', title="📊 Comparison of Gross & Net NPA", template="plotly_white")
+        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
+        if st.session_state["show_data_labels"]:
+            fig3.update_traces(texttemplate="%{y:.2%}", textposition="outside")
         st.plotly_chart(fig3, use_container_width=True)
+
     else:
         st.error("⚠️ NPA data is missing required columns!")
