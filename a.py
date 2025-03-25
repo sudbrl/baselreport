@@ -14,8 +14,9 @@ def fetch_excel_from_github(url):
 # Load Excel file from GitHub
 GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
 try:
-    excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
-    xls = pd.ExcelFile(BytesIO(excel_bytes)) 
+    with st.spinner("Fetching data..."):
+        excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
+    xls = pd.ExcelFile(BytesIO(excel_bytes))
 except requests.exceptions.RequestException as e:
     st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
     st.stop()
@@ -28,13 +29,16 @@ except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
 
-# Function to format values for display
+# Function to format values
 def format_label(value):
     if isinstance(value, (int, float)):
-        return f"{value * 100:.1f}%" if abs(value) < 1 and value != 0 else f"{value:,.0f}"  
-    return value  
+        if abs(value) < 1 and value != 0:
+            return f"{value * 100:.2f}%"  # Format percentage with two decimal places
+        else:
+            return f"{value / 10000:,.2f} Crs"  # Convert to Crores
+    return value
 
-# Function to apply formatting to data labels
+# Function to apply data labels
 def apply_data_labels(fig, column_data):
     formatted_labels = [format_label(v) for v in column_data]
     fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
@@ -48,16 +52,20 @@ tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
 ### --- Financial Data Tab ---
 with tab1:
     st.header("📜 Financial Data Overview")
-
+    
     col_filters, col_content = st.columns([1, 3])
-
+    
     with col_filters:
         st.subheader("🔍 Filters")
 
         particulars_selected = st.multiselect("Select Particulars:", ["All"] + list(data["Particulars"].dropna().unique()), default=["All"])
         month_selected = st.multiselect("Select Month:", ["All"] + list(data["Month"].dropna().unique()), default=["All"])
 
-        st.button("🔄 Reset Filters", on_click=lambda: (st.session_state.update({"particulars_selected": ["All"], "month_selected": ["All"]})))
+        def reset_filters():
+            st.session_state.particulars_selected = ["All"]
+            st.session_state.month_selected = ["All"]
+
+        st.button("🔄 Reset Filters", on_click=reset_filters)
 
         filtered_data = data.copy()
         if "All" not in particulars_selected:
@@ -66,7 +74,6 @@ with tab1:
             filtered_data = filtered_data[filtered_data["Month"].isin(month_selected)]
 
         csv_data = filtered_data.to_csv(index=False).encode("utf-8")
-
         st.download_button("📥 Download Filtered Data", data=csv_data, file_name="filtered_financial_data.csv", mime="text/csv")
 
     with col_content:
@@ -75,7 +82,7 @@ with tab1:
         if filtered_data.empty:
             st.error("⚠️ No data available for the selected filters! Try adjusting your choices.")
         else:
-            styled_data = filtered_data.applymap(format_label)
+            styled_data = filtered_data.style.format(format_label)
             st.dataframe(styled_data, height=400)
 
             if "All" not in particulars_selected:
@@ -116,7 +123,7 @@ with tab2:
         fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
                       barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
         if show_data_labels_bar:
-            fig3.update_traces(texttemplate="%{y:.1%}", textposition="outside")
+            fig3.update_traces(texttemplate="%{y:.2f}%", textposition="outside")
         st.plotly_chart(fig3, use_container_width=True)
 
     else:
