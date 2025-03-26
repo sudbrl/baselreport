@@ -29,7 +29,7 @@ except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
 
-# Function to format values for display
+# Function to format values
 def format_label(value):
     if isinstance(value, (int, float)):
         if abs(value) < 1 and value != 0:  # Format as percentage
@@ -44,7 +44,7 @@ def format_dataframe(df):
         df_copy[col] = df_copy[col].apply(format_label)
     return df_copy
 
-# Function to apply formatted data labels to charts
+# Function to apply data labels to charts
 def apply_data_labels(fig, column_data):
     formatted_labels = [format_label(v) for v in column_data]
     fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
@@ -106,10 +106,23 @@ with tab1:
             if "All" not in particulars_selected:
                 show_data_labels = st.checkbox("📊 Show Data Labels", key="show_labels_financial")
 
-                fig = px.line(filtered_data, x="Month", y="Rs", title="📈 Financial Trend", template="plotly_white", markers=True)
+                # Dynamic title with selected "Particulars"
+                selected_particulars_title = ", ".join(particulars_selected) if "All" not in particulars_selected else "Financial Trend"
+
+                fig = px.line(filtered_data, x="Month", y="Rs", 
+                              title=f"📈 {selected_particulars_title}", 
+                              template="plotly_dark", markers=True)
+
+                # Apply Y-axis formatting
+                fig.update_yaxes(
+                    title_text="Rs (000)",
+                    tickformat=",",  # Format numbers with commas
+                    showgrid=True, gridwidth=0.5, gridcolor="gray"
+                )
+
                 if show_data_labels:
-                    apply_data_labels(fig, filtered_data["Rs"])
-                fig.update_yaxes(tickformat=".2f")  # Ensure consistent formatting
+                    apply_data_labels(fig, filtered_data["Rs"] / 1000)  # Convert Rs to thousands
+
                 st.plotly_chart(fig, use_container_width=True)
 
 ### --- NPA Trends Tab ---
@@ -125,30 +138,25 @@ with tab2:
             show_data_labels_gross = st.checkbox("📊 Show Data Labels", key="show_labels_gross_npa")
 
             fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA Trend", 
-                           template="plotly_white", markers=True)
+                           template="plotly_dark", markers=True)
+            fig1.update_yaxes(title_text="%", tickformat=".2%", showgrid=True, gridwidth=0.5, gridcolor="gray")
+            
             if show_data_labels_gross:
                 apply_data_labels(fig1, npa_data["Gross Npa To Gross Advances"])
-            fig1.update_yaxes(tickformat=".2%")  # Format as percentage
+            
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
             show_data_labels_net = st.checkbox("📊 Show Data Labels", key="show_labels_net_npa")
 
             fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA Trend", 
-                           template="plotly_white", markers=True)
+                           template="plotly_dark", markers=True)
+            fig2.update_yaxes(title_text="%", tickformat=".2%", showgrid=True, gridwidth=0.5, gridcolor="gray")
+
             if show_data_labels_net:
                 apply_data_labels(fig2, npa_data["Net Npa To Net Advances"])
-            fig2.update_yaxes(tickformat=".2%")  # Format as percentage
+
             st.plotly_chart(fig2, use_container_width=True)
-
-        show_data_labels_bar = st.checkbox("📊 Show Data Labels", key="show_labels_bar_npa")
-
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                      barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
-        if show_data_labels_bar:
-            fig3.update_traces(texttemplate="%{y:.2%}", textposition="outside")
-        fig3.update_yaxes(tickformat=".2%")  # Format as percentage
-        st.plotly_chart(fig3, use_container_width=True)
 
     else:
         st.error("⚠️ NPA data is missing required columns!")
