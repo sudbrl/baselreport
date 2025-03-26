@@ -30,23 +30,29 @@ except Exception as e:
     st.stop()
 
 # Function to format values for display
-def format_label(value):
+def format_label(value, is_percentage=False):
     if isinstance(value, (int, float)):
-        if -1 < value < 1 and value != 0:  # Format as percentage
-            return f"{value * 100:.2f}%"
+        if is_percentage:
+            return f"{value * 100:.2f}%"  # Format as percentage
+        elif abs(value) < 1 and value != 0:
+            return f"{value * 100:.2f}%"  # Format as percentage
         return f"{value:,.0f}"  # Format large numbers with commas
     return value  
 
 # Function to apply formatting to dataframe
 def format_dataframe(df):
     df_copy = df.copy()
+    
+    # Identify which columns are percentages (e.g., columns containing the word 'Npa' or 'Rs')
     for col in df_copy.select_dtypes(include=['float', 'int']):
-        df_copy[col] = df_copy[col].apply(format_label)
+        # Add custom condition to identify percentage columns
+        is_percentage = any(substring in col.lower() for substring in ["npa", "to", "advance", "rs"])  # Adjust as needed
+        df_copy[col] = df_copy[col].apply(lambda x: format_label(x, is_percentage))
     return df_copy
 
 # Function to apply formatted data labels to charts
-def apply_data_labels(fig, column_data):
-    formatted_labels = [format_label(v) for v in column_data]
+def apply_data_labels(fig, column_data, is_percentage=False):
+    formatted_labels = [format_label(v, is_percentage) for v in column_data]
     fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
 
 # Dashboard Title
@@ -132,7 +138,7 @@ with tab2:
             fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA Trend", 
                            template="plotly_white", markers=True)
             if show_data_labels_gross:
-                apply_data_labels(fig1, npa_data["Gross Npa To Gross Advances"])
+                apply_data_labels(fig1, npa_data["Gross Npa To Gross Advances"], is_percentage=True)
             fig1.update_yaxes(tickformat=".2%")  # Format as percentage
             st.plotly_chart(fig1, use_container_width=True)
 
@@ -142,7 +148,7 @@ with tab2:
             fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA Trend", 
                            template="plotly_white", markers=True)
             if show_data_labels_net:
-                apply_data_labels(fig2, npa_data["Net Npa To Net Advances"])
+                apply_data_labels(fig2, npa_data["Net Npa To Net Advances"], is_percentage=True)
             fig2.update_yaxes(tickformat=".2%")  # Format as percentage
             st.plotly_chart(fig2, use_container_width=True)
 
