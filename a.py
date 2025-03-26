@@ -13,7 +13,7 @@ def fetch_excel_from_github(url):
     return response.content
 
 # Load Excel file from GitHub
-GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
+GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
 try:
     excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
     xls = pd.ExcelFile(BytesIO(excel_bytes)) 
