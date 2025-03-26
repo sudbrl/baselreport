@@ -55,6 +55,22 @@ def apply_data_labels(fig, column_data, is_percentage=False):
     formatted_labels = [format_label(v, is_percentage) for v in column_data]
     fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
 
+# Function to apply fancy styling to the charts
+def style_chart(fig):
+    # Set the background colors to a fancy style
+    fig.update_layout(
+        plot_bgcolor='rgba(240, 248, 255, 0.85)',  # Soft light blue background for the plot
+        paper_bgcolor='rgba(0, 0, 0, 0)',  # Transparent background for the paper
+        title_font=dict(size=18, color="rgb(32, 64, 128)", family="Arial, sans-serif"),
+        xaxis_title_font=dict(size=14, color="rgb(32, 64, 128)", family="Arial, sans-serif"),
+        yaxis_title_font=dict(size=14, color="rgb(32, 64, 128)", family="Arial, sans-serif"),
+        title_x=0.5,  # Center align the title
+        xaxis=dict(tickfont=dict(size=12, color="rgb(32, 64, 128)")),
+        yaxis=dict(tickfont=dict(size=12, color="rgb(32, 64, 128)")),
+        margin=dict(l=50, r=50, t=80, b=50),  # Adjust margins for better space utilization
+    )
+    return fig
+
 # Dashboard Title
 st.title("📊 Financial Dashboard")
 
@@ -121,6 +137,8 @@ with tab1:
                 if show_data_labels:
                     apply_data_labels(fig, filtered_data["Rs"])
                 fig.update_yaxes(tickformat=".2f")  # Ensure consistent formatting
+                fig.update_layout(width=1200, height=600)  # Stretch chart width
+                fig = style_chart(fig)  # Apply fancy styling
                 st.plotly_chart(fig, use_container_width=True)
 
 ### --- NPA Trends Tab ---
@@ -140,6 +158,8 @@ with tab2:
             if show_data_labels_gross:
                 apply_data_labels(fig1, npa_data["Gross Npa To Gross Advances"], is_percentage=True)
             fig1.update_yaxes(tickformat=".2%")  # Format as percentage
+            fig1.update_layout(width=1200, height=600)  # Stretch chart width
+            fig1 = style_chart(fig1)  # Apply fancy styling
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
@@ -150,6 +170,8 @@ with tab2:
             if show_data_labels_net:
                 apply_data_labels(fig2, npa_data["Net Npa To Net Advances"], is_percentage=True)
             fig2.update_yaxes(tickformat=".2%")  # Format as percentage
+            fig2.update_layout(width=1200, height=600)  # Stretch chart width
+            fig2 = style_chart(fig2)  # Apply fancy styling
             st.plotly_chart(fig2, use_container_width=True)
 
         show_data_labels_bar = st.checkbox("📊 Show Data Labels", key="show_labels_bar_npa")
@@ -159,6 +181,8 @@ with tab2:
         if show_data_labels_bar:
             fig3.update_traces(texttemplate="%{y:.2%}", textposition="outside")
         fig3.update_yaxes(tickformat=".2%")  # Format as percentage
+        fig3.update_layout(width=1200, height=600)  # Stretch chart width
+        fig3 = style_chart(fig3)  # Apply fancy styling
         st.plotly_chart(fig3, use_container_width=True)
 
     else:
