@@ -5,14 +5,17 @@ import requests
 from io import BytesIO
 from datetime import datetime
 
-# Function to load Excel file
+# Function to cache and load raw Excel file bytes
 @st.cache_data
-def load_excel(file):
-    return pd.ExcelFile(file)
+def load_excel_bytes(file):
+    return file.read()
 
 # Load uploaded Excel file
-file_path = "./baseldata.xlsx"  # Update as needed
-xls = load_excel(file_path)
+with open("./baseldata.xlsx", "rb") as f:
+    excel_bytes = load_excel_bytes(f)
+
+# Parse the Excel file
+xls = pd.ExcelFile(BytesIO(excel_bytes))
 
 # Parse "Data" and "Sheet1" (NPA Data)
 data = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
