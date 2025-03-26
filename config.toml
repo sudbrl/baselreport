@@ -1,0 +1,9 @@
+[server]
+headless = true
+enableCORS = false
+
+[theme]
+base = "light"  # Choose between "light" or "dark"
+primaryColor = "blue"
+layout = "wide"  # Makes the layout wider
+hideStreamlitMark = true  # Hides the Streamlit logo and footer
