@@ -32,7 +32,7 @@ except Exception as e:
 # Function to format values for display
 def format_label(value):
     if isinstance(value, (int, float)):
-        if abs(value) < 1 and value != 0:  # Format as percentage
+        if -1 < value < 1 and value != 0:  # Format as percentage
             return f"{value * 100:.2f}%"
         return f"{value:,.0f}"  # Format large numbers with commas
     return value  
