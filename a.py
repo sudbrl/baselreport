@@ -176,21 +176,19 @@ with tab2:
 
         show_data_labels_line = st.checkbox("📊 Show Data Labels", key="show_labels_line_npa")
 
-      # Create the line chart for Gross vs. Net NPA
-fig3 = px.line(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-               title="📊 Gross vs. Net NPA", template="plotly_white")
+        # Create the line chart for Gross vs. Net NPA
+        fig3 = px.line(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+                       title="📊 Gross vs. Net NPA", template="plotly_white")
 
-# Add data labels if the checkbox is checked
-if show_data_labels_line:
-    for trace in fig3.data:
-        trace.update(texttemplate="%{y:.2%}", textposition="top center")  # Apply data labels to each trace
+        # Add data labels if the checkbox is checked
+        if show_data_labels_line:
+            for trace in fig3.data:
+                trace.update(texttemplate="%{y:.2%}", textposition="top center")  # Apply data labels to each trace
 
-fig3.update_yaxes(tickformat=".2%")  # Format as percentage
-fig3.update_layout(width=1200, height=600)  # Stretch chart width
-fig3 = style_chart(fig3)  # Apply fancy styling
-st.plotly_chart(fig3, use_container_width=True)
-
+        fig3.update_yaxes(tickformat=".2%")  # Format as percentage
+        fig3.update_layout(width=1200, height=600)  # Stretch chart width
+        fig3 = style_chart(fig3)  # Apply fancy styling
+        st.plotly_chart(fig3, use_container_width=True)
 
     else:
         st.error("⚠️ NPA data is missing required columns!")
-
