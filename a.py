@@ -25,7 +25,9 @@ except requests.exceptions.RequestException as e:
 try:
     data = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
     npa_data = xls.parse("Sheet1")
-    capital_data = xls.parse("capital")
+    # Ensure correct sheet name and handle potential issues
+    sheet_name = "capital" if "capital" in xls.sheet_names else xls.sheet_names[-1]
+    capital_data = xls.parse(sheet_name)
 except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
