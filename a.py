@@ -182,6 +182,7 @@ with tab2:
 
         # Add data labels if the checkbox is checked
         if show_data_labels_line:
+            # Apply data labels to both series in the chart
             apply_data_labels(fig3, npa_data[["Gross Npa To Gross Advances", "Net Npa To Net Advances"]].values.flatten(), is_percentage=True)
 
         fig3.update_yaxes(tickformat=".2%")  # Format as percentage
