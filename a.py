@@ -53,7 +53,7 @@ def format_dataframe(df):
 # Function to apply formatted data labels to charts
 def apply_data_labels(fig, column_data, is_percentage=False):
     formatted_labels = [format_label(v, is_percentage) for v in column_data]
-    fig.update_traces(text=formatted_labels, textposition="auto", mode="lines+text")
+    fig.update_traces(text=formatted_labels, textposition="top center")  # Correct textposition and no 'mode'
 
 # Function to apply fancy styling to the charts
 def style_chart(fig):
@@ -182,8 +182,7 @@ with tab2:
 
         # Add data labels if the checkbox is checked
         if show_data_labels_line:
-            for trace in fig3.data:
-                trace.update(texttemplate="%{y:.2%}", textposition="top center")  # Apply data labels to each trace
+            apply_data_labels(fig3, npa_data[["Gross Npa To Gross Advances", "Net Npa To Net Advances"]].values.flatten(), is_percentage=True)
 
         fig3.update_yaxes(tickformat=".2%")  # Format as percentage
         fig3.update_layout(width=1200, height=600)  # Stretch chart width
