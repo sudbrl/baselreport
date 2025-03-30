@@ -140,50 +140,25 @@ with tab1:
                 fig.update_layout(width=1200, height=600)  # Stretch chart width
                 fig = style_chart(fig)  # Apply fancy styling
                 st.plotly_chart(fig, use_container_width=True)
-
-### --- NPA Trends Tab ---
 with tab2:
     st.header("📉 NPA Trends")
 
     required_npa_columns = {"Month", "Gross Npa To Gross Advances", "Net Npa To Net Advances"}
+    
     if required_npa_columns.issubset(npa_data.columns):
+        latest_month = npa_data["Month"].iloc[-1]
+        latest_gross_npa = npa_data["Gross Npa To Gross Advances"].iloc[-1]
+        latest_net_npa = npa_data["Net Npa To Net Advances"].iloc[-1]
 
+        st.markdown(f"### 📅 Latest Data: {latest_month}")
+        
         col1, col2 = st.columns(2)
-
+        
         with col1:
-            show_data_labels_gross = st.checkbox("📊 Show Data Labels", key="show_labels_gross_npa")
-
-            fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA Trend", 
-                           template="plotly_white", markers=True)
-            if show_data_labels_gross:
-                apply_data_labels(fig1, npa_data["Gross Npa To Gross Advances"], is_percentage=True)
-            fig1.update_yaxes(tickformat=".2%")  # Format as percentage
-            fig1.update_layout(width=1200, height=600)  # Stretch chart width
-            fig1 = style_chart(fig1)  # Apply fancy styling
-            st.plotly_chart(fig1, use_container_width=True)
+            st.metric(label="📊 Gross NPA %", value=f"{latest_gross_npa:.2%}")
 
         with col2:
-            show_data_labels_net = st.checkbox("📊 Show Data Labels", key="show_labels_net_npa")
-
-            fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA Trend", 
-                           template="plotly_white", markers=True)
-            if show_data_labels_net:
-                apply_data_labels(fig2, npa_data["Net Npa To Net Advances"], is_percentage=True)
-            fig2.update_yaxes(tickformat=".2%")  # Format as percentage
-            fig2.update_layout(width=1200, height=600)  # Stretch chart width
-            fig2 = style_chart(fig2)  # Apply fancy styling
-            st.plotly_chart(fig2, use_container_width=True)
-
-        show_data_labels_bar = st.checkbox("📊 Show Data Labels", key="show_labels_bar_npa")
-
-        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                      barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
-        if show_data_labels_bar:
-            fig3.update_traces(texttemplate="%{y:.2%}", textposition="outside")
-        fig3.update_yaxes(tickformat=".2%")  # Format as percentage
-        fig3.update_layout(width=1200, height=600)  # Stretch chart width
-        fig3 = style_chart(fig3)  # Apply fancy styling
-        st.plotly_chart(fig3, use_container_width=True)
+            st.metric(label="📊 Net NPA %", value=f"{latest_net_npa:.2%}")
 
     else:
         st.error("⚠️ NPA data is missing required columns!")
