@@ -21,11 +21,20 @@ except requests.exceptions.RequestException as e:
     st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
     st.stop()
 
-# Parse "Data", "Sheet1" (NPA Data), and "Sheet3" (Capital Adequacy)
+# Parse "Data", "Sheet1" (NPA Data), and dynamically find "Sheet3"
 try:
     data = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
     npa_data = xls.parse("Sheet1")
-    capital_data = xls.parse("Sheet3")
+    
+    # Find the correct sheet name for capital adequacy
+    sheet_names = xls.sheet_names
+    capital_sheet_name = next((s for s in sheet_names if "Sheet3" in s), None)
+    
+    if capital_sheet_name:
+        capital_data = xls.parse(capital_sheet_name)
+    else:
+        st.error("⚠️ Capital adequacy sheet not found in the file!")
+        st.stop()
 except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
