@@ -23,9 +23,11 @@ except requests.exceptions.RequestException as e:
 
 # Parse "Data", "Sheet1" (NPA Data), and "capital" for Capital Adequacy
 try:
-    data = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
+    data = xls.parse("Data")
+    if data.empty:
+        st.error("⚠️ Financial Data sheet is empty! Please check the source file.")
+        st.stop()
     npa_data = xls.parse("Sheet1")
-    # Ensure correct sheet name and handle potential issues
     sheet_name = "capital" if "capital" in xls.sheet_names else xls.sheet_names[-1]
     capital_data = xls.parse(sheet_name)
 except Exception as e:
@@ -41,6 +43,11 @@ def style_chart(fig):
         title_x=0.5,
     )
     return fig
+
+# Function to format data labels
+def apply_data_labels(fig, column_data):
+    formatted_labels = [f"{v:.2%}" if isinstance(v, (int, float)) else v for v in column_data]
+    fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
 
 # Dashboard Title
 st.title("📊 Financial Dashboard")
@@ -61,7 +68,8 @@ with tab2:
                        title="📊 Gross vs. Net NPA", template="plotly_white", markers=True)
         
         if show_data_labels_line:
-            fig3.update_traces(texttemplate="%{y:.2%}", textposition="top center")
+            apply_data_labels(fig3, npa_data["Gross Npa To Gross Advances"])
+            apply_data_labels(fig3, npa_data["Net Npa To Net Advances"])
         
         fig3.update_yaxes(tickformat=".2%")
         fig3.update_layout(width=1200, height=600)
@@ -74,8 +82,15 @@ with tab2:
 with tab3:
     st.header("🏦 Capital Adequacy")
     if "Month" in capital_data.columns and len(capital_data.columns) > 1:
+        show_data_labels_capital = st.checkbox("📊 Show Data Labels", key="show_labels_capital")
+        
         fig4 = px.line(capital_data, x="Month", y=capital_data.columns[1:], 
                        title="🏦 Capital Adequacy Trends", template="plotly_white", markers=True)
+        
+        if show_data_labels_capital:
+            for col in capital_data.columns[1:]:
+                apply_data_labels(fig4, capital_data[col])
+        
         fig4.update_yaxes(tickformat=".2%")
         fig4 = style_chart(fig4)
         st.plotly_chart(fig4, use_container_width=True)
