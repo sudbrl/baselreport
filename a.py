@@ -50,12 +50,10 @@ def format_dataframe(df):
         df_copy[col] = df_copy[col].apply(lambda x: format_label(x, is_percentage))
     return df_copy
 
-# Function to apply formatted data labels to charts (fix for multi-trace charts)
+# Function to apply formatted data labels to charts
 def apply_data_labels(fig, column_data, is_percentage=False):
-    # Loop through all traces and apply data labels individually
-    for i, trace in enumerate(fig.data):
-        formatted_labels = [format_label(v, is_percentage) for v in column_data[i]]
-        trace.update(text=formatted_labels, textposition="top center")
+    formatted_labels = [format_label(v, is_percentage) for v in column_data]
+    fig.update_traces(text=formatted_labels, textposition="top center", mode="lines+text")
 
 # Function to apply fancy styling to the charts
 def style_chart(fig):
@@ -137,7 +135,7 @@ with tab1:
                               title=f"📈 {selected_particulars_title}", 
                               template="plotly_white", markers=True)
                 if show_data_labels:
-                    apply_data_labels(fig, [filtered_data["Rs"]])  # Pass data in list for multi-trace handling
+                    apply_data_labels(fig, filtered_data["Rs"])
                 fig.update_yaxes(tickformat=".2f")  # Ensure consistent formatting
                 fig.update_layout(width=1200, height=600)  # Stretch chart width
                 fig = style_chart(fig)  # Apply fancy styling
@@ -158,7 +156,7 @@ with tab2:
             fig1 = px.line(npa_data, x="Month", y="Gross Npa To Gross Advances", title="📊 Gross NPA Trend", 
                            template="plotly_white", markers=True)
             if show_data_labels_gross:
-                apply_data_labels(fig1, [npa_data["Gross Npa To Gross Advances"]], is_percentage=True)
+                apply_data_labels(fig1, npa_data["Gross Npa To Gross Advances"], is_percentage=True)
             fig1.update_yaxes(tickformat=".2%")  # Format as percentage
             fig1.update_layout(width=1200, height=600)  # Stretch chart width
             fig1 = style_chart(fig1)  # Apply fancy styling
@@ -170,23 +168,18 @@ with tab2:
             fig2 = px.line(npa_data, x="Month", y="Net Npa To Net Advances", title="📊 Net NPA Trend", 
                            template="plotly_white", markers=True)
             if show_data_labels_net:
-                apply_data_labels(fig2, [npa_data["Net Npa To Net Advances"]], is_percentage=True)
+                apply_data_labels(fig2, npa_data["Net Npa To Net Advances"], is_percentage=True)
             fig2.update_yaxes(tickformat=".2%")  # Format as percentage
             fig2.update_layout(width=1200, height=600)  # Stretch chart width
             fig2 = style_chart(fig2)  # Apply fancy styling
             st.plotly_chart(fig2, use_container_width=True)
 
-        show_data_labels_line = st.checkbox("📊 Show Data Labels", key="show_labels_line_npa")
+        show_data_labels_bar = st.checkbox("📊 Show Data Labels", key="show_labels_bar_npa")
 
-        # Create the line chart for Gross vs. Net NPA
-        fig3 = px.line(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
-                       title="📊 Gross vs. Net NPA", template="plotly_white")
-
-        # Add data labels if the checkbox is checked
-        if show_data_labels_line:
-            # Apply data labels to both series in the chart
-            apply_data_labels(fig3, [npa_data["Gross Npa To Gross Advances"], npa_data["Net Npa To Net Advances"]], is_percentage=True)
-
+        fig3 = px.bar(npa_data, x="Month", y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"], 
+                      barmode='group', title="📊 Gross vs. Net NPA", template="plotly_white")
+        if show_data_labels_bar:
+            fig3.update_traces(texttemplate="%{y:.2%}", textposition="outside")
         fig3.update_yaxes(tickformat=".2%")  # Format as percentage
         fig3.update_layout(width=1200, height=600)  # Stretch chart width
         fig3 = style_chart(fig3)  # Apply fancy styling
