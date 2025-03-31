@@ -29,13 +29,6 @@ except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
 
-# Parse "capital" (Capital Data)
-try:
-     cap_data = xls.parse("capital")
-except Exception as e:
-    st.error(f"⚠️ Error parsing Excel sheets: {e}")
-    st.stop()
-
 # Function to format values for display
 def format_label(value, is_percentage=False):
     if isinstance(value, (int, float)):
