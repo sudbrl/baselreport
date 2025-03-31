@@ -29,10 +29,9 @@ except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
 
-# Parse "capital" and "Sheet5" (NPA Data)
+# Parse "capital" (Capital Data)
 try:
-    data1 = xls.parse("Data").drop(columns=["Month", "Core Capital%", "Total Capital%"], errors="ignore")
-    cap_data = xls.parse("Sheet5")
+     cap_data = xls.parse("capital").drop(columns=["Month", "Core Capital%", "Total Capital%"], errors="ignore")
 except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
