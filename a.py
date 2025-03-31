@@ -29,6 +29,14 @@ except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
 
+# Parse "capital" and "Sheet5" (NPA Data)
+try:
+    data1 = xls.parse("Data").drop(columns=["Month", "Core Capital%", "Total Capital%"], errors="ignore")
+    cap_data = xls.parse("Sheet5")
+except Exception as e:
+    st.error(f"⚠️ Error parsing Excel sheets: {e}")
+    st.stop()
+
 # Function to format values for display
 def format_label(value, is_percentage=False):
     if isinstance(value, (int, float)):
