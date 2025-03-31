@@ -31,7 +31,7 @@ except Exception as e:
 
 # Parse "capital" (Capital Data)
 try:
-     cap_data = xls.parse("Sheet5")
+     cap_data = xls.parse("capital")
 except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
