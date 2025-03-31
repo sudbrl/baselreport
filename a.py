@@ -8,7 +8,7 @@ from io import BytesIO
 st.set_page_config(layout="wide", page_title="Financial Dashboard")
 
 # GitHub file URL (RAW version)
-GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsm"
+GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
 
 # Function to fetch Excel file from GitHub
 @st.cache_data
