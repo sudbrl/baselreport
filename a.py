@@ -72,7 +72,7 @@ def load_data(file_path):
         return None, None
 
 # Load data
-file_path = "Basel Data JBBL (1).xlsm"
+file_path = "Basel Data JBBL.xlsx"
 data, npa_data = load_data(file_path)
 
 if data is not None and npa_data is not None:
