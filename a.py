@@ -27,7 +27,7 @@ def load_data():
     url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
     response = requests.get(url)
     response.raise_for_status()
-    df = pd.read_excel(BytesIO(response.content))
+    df = pd.read_excel(BytesIO(response.content), engine="openpyxl")
 
     # Clean data
     df['Rs'] = df['Rs'].replace('-', pd.NA)
