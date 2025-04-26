@@ -30,10 +30,25 @@ def validate_columns(df, required_cols, sheet_name):
         st.stop()
     return True
 
+# Function to clean numeric column
+def clean_numeric_column(series):
+    # Convert to string to handle mixed types
+    series = series.astype(str)
+    # Remove common formatting (commas, currency symbols, spaces)
+    series = series.str.replace(r'[,\$\s]', '', regex=True)
+    # Replace common non-numeric values with NaN
+    series = series.replace(['', 'N/A', 'NA', 'Not Available', 'nan', 'NaN'], pd.NA)
+    # Convert to numeric, coercing errors to NaN
+    cleaned_series = pd.to_numeric(series, errors='coerce')
+    # Report non-numeric values
+    non_numeric = series[cleaned_series.isna() & ~series.isna()]
+    if not non_numeric.empty:
+        st.warning(f"⚠️ Found {len(non_numeric)} non-numeric values in '{series.name}' column. Converted to NaN. Examples: {non_numeric.unique()[:5]}")
+    return cleaned_series
+
 # Function to detect percentage columns
 def is_percentage_column(series):
     if pd.api.types.is_numeric_dtype(series):
-        # Assume columns with values between 0 and 1 (or slightly above for errors) are percentages
         valid_values = series.dropna()
         if len(valid_values) > 0:
             return valid_values.abs().le(1.5).all()  # Allow small errors (e.g., 1.01)
@@ -101,8 +116,10 @@ except requests.exceptions.RequestException as e:
 
 # Parse "Data" and "Sheet1" (NPA Data)
 try:
-    data = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
-    npa_data = xls.parse("Sheet1")
+    data = xls.parse("Data", na_values=['N/A', 'NA', 'Not Available']).drop(
+        columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore"
+    )
+    npa_data = xls.parse("Sheet1", na_values=['N/A', 'NA', 'Not Available'])
 except Exception as e:
     st.error(f"⚠️ Error parsing Excel sheets: {e}")
     st.stop()
@@ -111,12 +128,15 @@ except Exception as e:
 validate_columns(data, [COLUMN_MAPPING["month"], COLUMN_MAPPING["particulars"], COLUMN_MAPPING["financial_value"]], "Data sheet")
 validate_columns(npa_data, [COLUMN_MAPPING["month"], COLUMN_MAPPING["gross_npa"], COLUMN_MAPPING["net_npa"]], "NPA sheet")
 
-# Validate numeric data
-for col in [COLUMN_MAPPING["financial_value"], COLUMN_MAPPING["gross_npa"], COLUMN_MAPPING["net_npa"]]:
-    df = data if col == COLUMN_MAPPING["financial_value"] else npa_data
-    if not pd.api.types.is_numeric_dtype(df[col]):
-        st.error(f"⚠️ Column '{col}' contains non-numeric values!")
-        st.stop()
+# Clean numeric columns
+data[COLUMN_MAPPING["financial_value"]] = clean_numeric_column(data[COLUMN_MAPPING["financial_value"]])
+npa_data[COLUMN_MAPPING["gross_npa"]] = clean_numeric_column(npa_data[COLUMN_MAPPING["gross_npa"]])
+npa_data[COLUMN_MAPPING["net_npa"]] = clean_numeric_column(npa_data[COLUMN_MAPPING["net_npa"]])
+
+# Check if Rs column is entirely NaN after cleaning
+if data[COLUMN_MAPPING["financial_value"]].isna().all():
+    st.error(f"⚠️ Column '{COLUMN_MAPPING['financial_value']}' contains no valid numeric data after cleaning!")
+    st.stop()
 
 # Tabs
 tab1, tab2 = st.tabs(["📜 Financial Data", "📉 NPA Trends"])
