@@ -96,7 +96,7 @@ st.markdown("<p class='medium-font'>Comprehensive analysis of banking data from 
 # Load data
 @st.cache_data
 def load_data():
-    df = pd.read_excel('https://github.com/sudbrl/baselreport/blob/main/baseldata.xlsx')
+    df = pd.read_excel('https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx')
     
     # Clean data
     # Replace '-' with NaN in Rs column and convert to numeric
