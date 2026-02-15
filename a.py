@@ -1,273 +1,236 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.express as px
 import plotly.graph_objects as go
-from dataclasses import dataclass
+from io import BytesIO
 from datetime import datetime
+import requests
 
-# -----------------------------------------------------------
-# Configuration
-# -----------------------------------------------------------
+# ---------------------- Page Configuration ----------------------
+st.set_page_config(
+    page_title="Executive MIS | Basel Analytics",
+    page_icon="🏢",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-@dataclass
-class Config:
-    COLORS = {
-        "chart_palette": [
-            "#1E3A8A",
-            "#2563EB",
-            "#0F172A",
-            "#475569",
-            "#64748B"
-        ]
+# ---------------------- Professional Theme & CSS ----------------------
+st.markdown("""
+<style>
+    :root { --primary: #1E3A8A; --bg: #F8FAFC; }
+    .main { background-color: var(--bg); }
+    
+    /* KPI Card Styling */
+    .metric-card {
+        background: white;
+        padding: 1.2rem;
+        border-radius: 10px;
+        border-top: 4px solid var(--primary);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
     }
-    TARGET_GNPA = 0.03
-    MIN_TOTAL_CAPITAL = 0.12
-    MIN_CORE_CAPITAL = 0.09
+    .metric-label { font-size: 0.75rem; color: #64748B; font-weight: 700; text-transform: uppercase; }
+    .metric-value { font-size: 1.8rem; font-weight: 800; color: #0F172A; }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] { background-color: #0F172A !important; }
+    section[data-testid="stSidebar"] * { color: white !important; }
+    
+    /* Adjusting selectbox height for small/modern look */
+    .stSelectbox, .stMultiSelect { margin-bottom: -15px; }
+</style>
+""", unsafe_allow_html=True)
 
+# ---------------------- Data Access Layer ----------------------
+@st.cache_data(ttl=3600)
+def load_mis_data():
+    url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
+    try:
+        response = requests.get(url)
+        xls = pd.ExcelFile(BytesIO(response.content))
+        df_main = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
+        df_npa = xls.parse("Sheet1")
+        df_cap = xls.parse("capital")
+        return df_main, df_npa, df_cap
+    except Exception as e:
+        st.error(f"MIS Connection Failure: {e}")
+        return None, None, None
 
-# -----------------------------------------------------------
-# Utility Functions
-# -----------------------------------------------------------
+df_main, df_npa, df_cap = load_mis_data()
 
-def format_currency(value: float) -> str:
-    return f"₹{value:,.0f}"
+if df_main is None: 
+    st.stop()
 
-def generate_sample_data():
-    months = pd.date_range("2023-01-01", periods=18, freq="M")
+# ---------------------- Sidebar Filters (Modern & Small) ----------------------
+with st.sidebar:
+    st.title("MIS CONTROLS")
+    st.markdown("---")
+    
+    st.caption("🔍 REPORT DRILL-DOWN")
+    all_months = df_main["Month"].unique().tolist()
+    selected_month = st.selectbox("Cycle", options=all_months, index=len(all_months)-1)
+    
+    available_parts = df_main["Particulars"].dropna().unique().tolist()
+    selected_parts = st.multiselect("Metrics", options=available_parts, default=available_parts[:2] if len(available_parts) >= 2 else available_parts)
+    
+    st.markdown("---")
+    st.caption("Engine: v3.2 | Financial Year 2025-26")
 
-    # Trend Data
-    parts = ["Loan Book", "Deposits", "Net Profit"]
-    trend_records = []
-    for p in parts:
-        base = np.random.randint(5000, 10000)
-        growth = np.random.uniform(0.01, 0.04)
-        values = [base * ((1 + growth) ** i) for i in range(len(months))]
-        for m, v in zip(months, values):
-            trend_records.append({"Month": m, "Particulars": p, "Rs": v})
+# ---------------------- KPI Calculations ----------------------
+try:
+    c_idx = df_npa[df_npa['Month'] == selected_month].index[0]
+    p_idx = max(0, c_idx - 1)
+except:
+    c_idx, p_idx = 0, 0
 
-    trend_df = pd.DataFrame(trend_records)
+def draw_kpi(label, current, prev, lower_better=False):
+    delta = current - prev
+    color = "#EF4444" if (delta > 0 and lower_better) or (delta < 0 and not lower_better) else "#10B981"
+    arrow = "▲" if delta > 0 else "▼"
+    st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{current:.2%}</div>
+            <div style="color: {color}; font-size: 0.85rem; font-weight: bold;">
+                {arrow} {abs(delta)*100:.2f}% <span style="color: #94A3B8; font-weight: normal;">vs LP</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # NPA Data
-    df_npa = pd.DataFrame({
-        "Month": months,
-        "Gross Npa To Gross Advances": np.linspace(0.045, 0.032, len(months)),
-        "Net Npa To Net Advances": np.linspace(0.022, 0.015, len(months))
-    })
+# ---------------------- Header & KPIs ----------------------
+st.title("Financial Risk Intelligence")
+k1, k2, k3, k4 = st.columns(4)
+with k1: 
+    draw_kpi("Gross NPA", df_npa.loc[c_idx, "Gross Npa To Gross Advances"], df_npa.loc[p_idx, "Gross Npa To Gross Advances"], True)
+with k2: 
+    draw_kpi("Net NPA", df_npa.loc[c_idx, "Net Npa To Net Advances"], df_npa.loc[p_idx, "Net Npa To Net Advances"], True)
+with k3: 
+    draw_kpi("Core Capital", df_cap.loc[c_idx, "Core Capital%"], df_cap.loc[p_idx, "Core Capital%"])
+with k4: 
+    draw_kpi("Capital Adequacy", df_cap.loc[c_idx, "Total Capital%"], df_cap.loc[p_idx, "Total Capital%"])
 
-    # Capital Data
-    df_cap = pd.DataFrame({
-        "Month": months,
-        "Core Capital%": np.linspace(0.115, 0.125, len(months)),
-        "Total Capital%": np.linspace(0.145, 0.16, len(months))
-    })
+st.markdown("---")
 
-    return trend_df, df_npa, df_cap
+# ---------------------- Main Content ----------------------
+tab1, tab2, tab3 = st.tabs(["📊 Performance Trend", "📉 Asset Quality", "🛡️ Compliance"])
 
+with tab1:
+    st.subheader("Financial Performance Drill-down")
+    
+    if not selected_parts:
+        st.warning("Please select at least one metric from the sidebar to view trends.")
+    else:
+        trend_df = df_main[df_main["Particulars"].isin(selected_parts)]
+        fig1 = px.line(trend_df, x="Month", y="Rs", color="Particulars", markers=True, template="plotly_white")
+        
+        # Enable Data Labels (using .2s for smart millions/thousands formatting)
+        fig1.update_traces(textposition="top center", texttemplate="%{y:.3s}", mode="lines+markers+text")
+        fig1.update_layout(hovermode="x unified", legend=dict(orientation="h", y=-0.2))
+        st.plotly_chart(fig1, use_container_width=True)
 
-# -----------------------------------------------------------
-# Enterprise Chart Theme
-# -----------------------------------------------------------
-
-def apply_corporate_theme(fig: go.Figure, height: int, title: str, subtitle: str = ""):
-    fig.update_layout(
+with tab2:
+    st.subheader("Asset Quality Monitoring")
+    st.info("The Credit Risk Assessment Matrix determines the provisioning requirements based on loan classification.")
+    
+    # Diagram Placeholder Replacement
+    with st.expander("📊 View Risk Classification Standards"):
+        st.markdown("""
+        **Asset Classification Framework:**
+        
+        | Category | Definition | Provisioning |
+        |----------|-----------|--------------|
+        | **Standard** | No default, timely repayment | 0.25% - 2% |
+        | **Sub-Standard** | Overdue > 90 days | 15% - 25% |
+        | **Doubtful** | Overdue > 12 months | 25% - 100% |
+        | **Loss** | Identified as non-recoverable | 100% |
+        
+        *Regulatory guidelines as per Basel III framework*
+        """)
+    
+    # NPA Chart with proper formatting
+    fig2 = go.Figure()
+    
+    # Bar Labels enabled
+    fig2.add_trace(go.Bar(
+        x=df_npa["Month"], 
+        y=df_npa["Gross Npa To Gross Advances"], 
+        name="Gross NPA", 
+        marker_color='#1E3A8A',
+        text=df_npa["Gross Npa To Gross Advances"].apply(lambda x: f'{x:.2%}'),
+        textposition='outside'
+    ))
+    
+    # Line Labels enabled
+    fig2.add_trace(go.Scatter(
+        x=df_npa["Month"], 
+        y=df_npa["Net Npa To Net Advances"], 
+        name="Net NPA", 
+        mode='lines+markers+text',
+        line=dict(color='#EF4444', width=3),
+        text=df_npa["Net Npa To Net Advances"].apply(lambda x: f'{x:.2%}'),
+        textposition='top center'
+    ))
+    
+    fig2.update_layout(
+        yaxis_tickformat=".2%", 
         template="plotly_white",
-        title=dict(
-            text=title,
-            x=0.02,
-            xanchor="left",
-            font=dict(size=18, color="#0F172A")
-        ),
-        font=dict(size=12, color="#0F172A"),
-        hovermode="x unified",
-        margin=dict(t=90, b=60, l=70, r=40),
-        height=height,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
+        xaxis_title="Period",
+        yaxis_title="NPA Ratio",
+        hovermode="x unified"
     )
+    st.plotly_chart(fig2, use_container_width=True)
 
-    if subtitle:
-        fig.add_annotation(
-            xref="paper",
-            yref="paper",
-            x=0.02,
-            y=1.12,
-            showarrow=False,
-            text=subtitle,
-            font=dict(size=11, color="#64748B")
-        )
-
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#F1F5F9")
-
-    return fig
-
-
-# -----------------------------------------------------------
-# Streamlit App
-# -----------------------------------------------------------
-
-st.set_page_config(page_title="Basel Analytics Dashboard", layout="wide")
-st.title("Basel Analytics | Supervisory Dashboard")
-
-trend_df, df_npa, df_cap = generate_sample_data()
-
-tabs = st.tabs(["Performance Trend", "Asset Quality", "Capital Adequacy"])
-
-# -----------------------------------------------------------
-# Tab 1: Performance Trend
-# -----------------------------------------------------------
-
-with tabs[0]:
-
-    chart_height = 500
-    selected_parts = st.multiselect(
-        "Select Portfolio Metrics",
-        options=trend_df["Particulars"].unique(),
-        default=trend_df["Particulars"].unique()
+with tab3:
+    st.subheader("Capital Adequacy & Buffer Analysis")
+    st.info("Basel III Capital Framework: Maintaining Tier 1 and Tier 2 capital levels above regulatory minimums.")
+    
+    # Capital adequacy chart
+    fig3 = px.area(
+        df_cap, 
+        x="Month", 
+        y=["Core Capital%", "Total Capital%"], 
+        color_discrete_map={"Core Capital%": "#93C5FD", "Total Capital%": "#1E3A8A"}, 
+        template="plotly_white"
     )
-
-    fig_trend = go.Figure()
-    colors = Config.COLORS["chart_palette"]
-
-    for idx, particular in enumerate(selected_parts):
-        data = trend_df[trend_df["Particulars"] == particular].sort_values("Month")
-
-        fig_trend.add_trace(
-            go.Scatter(
-                x=data["Month"],
-                y=data["Rs"],
-                name=particular,
-                mode="lines+markers",
-                line=dict(width=3, color=colors[idx % len(colors)]),
-                marker=dict(size=8)
-            )
+    
+    # Area labels enabled
+    fig3.update_traces(mode="lines+markers+text", texttemplate="%{y:.1%}", textposition="top center")
+    fig3.add_hline(y=0.085, line_dash="dash", line_color="red", annotation_text="Regulatory Limit (8.5%)")
+    fig3.update_layout(
+        yaxis_tickformat=".1%", 
+        legend=dict(orientation="h", y=1.1),
+        xaxis_title="Period",
+        yaxis_title="Capital Ratio",
+        hovermode="x unified"
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+    
+    # Additional Capital Metrics Table
+    st.markdown("#### Current Capital Position")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(
+            "Current Core Capital", 
+            f"{df_cap.loc[c_idx, 'Core Capital%']:.2%}",
+            delta=f"{(df_cap.loc[c_idx, 'Core Capital%'] - df_cap.loc[p_idx, 'Core Capital%']):.2%}"
+        )
+    
+    with col2:
+        st.metric(
+            "Total Capital Ratio", 
+            f"{df_cap.loc[c_idx, 'Total Capital%']:.2%}",
+            delta=f"{(df_cap.loc[c_idx, 'Total Capital%'] - df_cap.loc[p_idx, 'Total Capital%']):.2%}"
+        )
+    
+    with col3:
+        buffer = df_cap.loc[c_idx, 'Total Capital%'] - 0.085
+        st.metric(
+            "Capital Buffer", 
+            f"{buffer:.2%}",
+            delta="Above minimum" if buffer > 0 else "Below minimum",
+            delta_color="normal" if buffer > 0 else "inverse"
         )
 
-        latest_x = data["Month"].iloc[-1]
-        latest_y = data["Rs"].iloc[-1]
-
-        fig_trend.add_annotation(
-            x=latest_x,
-            y=latest_y,
-            text=f"<b>{format_currency(latest_y)}</b>",
-            showarrow=True,
-            arrowhead=2
-        )
-
-        if len(data) > 2:
-            cagr = (data["Rs"].iloc[-1] / data["Rs"].iloc[0]) ** (1/len(data)) - 1
-            volatility = data["Rs"].pct_change().std()
-
-            fig_trend.add_annotation(
-                xref="paper",
-                yref="paper",
-                x=0.99,
-                y=0.01 - (idx * 0.06),
-                text=f"{particular} | CAGR: {cagr:.2%} | Vol: {volatility:.2%}",
-                showarrow=False,
-                align="right"
-            )
-
-    fig_trend.update_yaxes(tickprefix="₹", separatethousands=True)
-
-    fig_trend = apply_corporate_theme(
-        fig_trend,
-        chart_height,
-        title="Portfolio Performance Trend",
-        subtitle="Monthly Values | INR"
-    )
-
-    st.plotly_chart(fig_trend, use_container_width=True)
-
-
-# -----------------------------------------------------------
-# Tab 2: Asset Quality
-# -----------------------------------------------------------
-
-with tabs[1]:
-
-    fig_npa = go.Figure()
-
-    max_y = df_npa["Gross Npa To Gross Advances"].max() * 1.2
-
-    fig_npa.add_hrect(y0=0, y1=Config.TARGET_GNPA, fillcolor="#DCFCE7", opacity=0.3, line_width=0)
-    fig_npa.add_hrect(y0=Config.TARGET_GNPA, y1=Config.TARGET_GNPA * 1.5, fillcolor="#FEF3C7", opacity=0.3, line_width=0)
-    fig_npa.add_hrect(y0=Config.TARGET_GNPA * 1.5, y1=max_y, fillcolor="#FEE2E2", opacity=0.3, line_width=0)
-
-    fig_npa.add_trace(
-        go.Bar(
-            x=df_npa["Month"],
-            y=df_npa["Gross Npa To Gross Advances"],
-            name="Gross NPA"
-        )
-    )
-
-    fig_npa.add_trace(
-        go.Scatter(
-            x=df_npa["Month"],
-            y=df_npa["Net Npa To Net Advances"],
-            name="Net NPA",
-            mode="lines+markers"
-        )
-    )
-
-    fig_npa.update_yaxes(tickformat=".2%")
-
-    fig_npa = apply_corporate_theme(
-        fig_npa,
-        500,
-        title="Asset Quality Trend",
-        subtitle="Gross vs Net NPA | Regulatory Risk Bands"
-    )
-
-    st.plotly_chart(fig_npa, use_container_width=True)
-
-
-# -----------------------------------------------------------
-# Tab 3: Capital Adequacy
-# -----------------------------------------------------------
-
-with tabs[2]:
-
-    fig_cap = go.Figure()
-
-    fig_cap.add_trace(
-        go.Scatter(
-            x=df_cap["Month"],
-            y=df_cap["Core Capital%"],
-            name="Tier 1 Capital",
-            fill="tozeroy",
-            line=dict(width=3)
-        )
-    )
-
-    fig_cap.add_trace(
-        go.Scatter(
-            x=df_cap["Month"],
-            y=df_cap["Total Capital%"],
-            name="Total Capital (CAR)",
-            fill="tozeroy",
-            line=dict(width=3)
-        )
-    )
-
-    fig_cap.add_hline(y=Config.MIN_TOTAL_CAPITAL, line_dash="dash")
-    fig_cap.add_hline(y=Config.MIN_CORE_CAPITAL, line_dash="dot")
-
-    fig_cap.update_yaxes(tickformat=".1%")
-
-    fig_cap = apply_corporate_theme(
-        fig_cap,
-        500,
-        title="Capital Adequacy Position",
-        subtitle="Tier 1 and Total CAR | Regulatory Thresholds"
-    )
-
-    st.plotly_chart(fig_cap, use_container_width=True)
+st.markdown("---")
+st.caption(f"Confidential MIS Report | Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}")
