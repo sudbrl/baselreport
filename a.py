@@ -126,13 +126,7 @@ with tab2:
     # Diagram Placeholder Replacement
     with st.expander("📊 View Risk Classification Standards"):
         st.write("Reference matrix for Standard, Sub-standard, Doubtful, and Loss assets.")
-    
-    
-
-[Image of credit risk assessment matrix]
-
-
-    fig2 = go.Figure()
+        fig2 = go.Figure()
     # Bar Labels enabled
     fig2.add_trace(go.Bar(
         x=df_npa["Month"], 
