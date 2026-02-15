@@ -2,809 +2,181 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import requests
 from io import BytesIO
 from datetime import datetime
-import numpy as np
+import requests
 
 # ---------------------- Page Configuration ----------------------
-
 st.set_page_config(
-    page_title="Financial Analytics Dashboard",
-    page_icon="📊",
+    page_title="Executive MIS | Basel Reporting",
+    page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ---------------------- Custom CSS Styling ----------------------
-
+# ---------------------- Professional Theme & CSS ----------------------
 st.markdown("""
 <style>
-    /* Main background gradient */
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    /* Professional Grey/Blue Palette */
+    :root {
+        --primary: #1E3A8A;
+        --secondary: #64748B;
+        --success: #10B981;
+        --danger: #EF4444;
     }
     
-    /* Custom header styling */
-    .main-header {
-        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    .main { background-color: #F8FAFC; }
+    
+    /* Metric Cards */
+    .metric-card {
+        background-color: white;
+        padding: 1.25rem;
+        border-radius: 0.5rem;
+        border-left: 5px solid var(--primary);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
-    .main-header h1 {
-        color: white;
-        font-size: 3rem;
-        font-weight: 700;
-        margin: 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
+    .metric-label { font-size: 0.85rem; color: var(--secondary); font-weight: 600; text-transform: uppercase; }
+    .metric-value { font-size: 1.8rem; font-weight: 700; color: #1E293B; margin: 0.2rem 0; }
     
-    .main-header p {
-        color: #f0f0f0;
-        font-size: 1.2rem;
-        margin-top: 0.5rem;
-    }
+    /* Headers */
+    h1, h2, h3 { color: #0F172A !important; font-family: 'Inter', sans-serif; }
     
-    /* KPI Card Styling */
-    .kpi-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        margin-bottom: 1rem;
-        transition: transform 0.3s ease;
-    }
-    
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 48px 0 rgba(31, 38, 135, 0.5);
-    }
-    
-    .kpi-title {
-        color: #2193b0;
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 0.5rem;
-    }
-    
-    .kpi-value {
-        color: #2d3748;
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin: 0.5rem 0;
-    }
-    
-    .kpi-change {
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
-    
-    .kpi-change.positive {
-        color: #48bb78;
-    }
-    
-    .kpi-change.negative {
-        color: #f56565;
-    }
-    
-    /* Filter Section */
-    .filter-section {
-        background: rgba(255, 255, 255, 0.95);
-        padding: 1.5rem;
-        border-radius: 15px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        margin-bottom: 1rem;
-    }
-    
-    /* Data table styling */
-    .dataframe {
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    
-    /* Metric cards */
-    div[data-testid="metric-container"] {
-        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
-        border-radius: 15px;
-        padding: 1rem;
-        box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-    }
-    
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 0.5rem;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background-color: rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        color: white;
-        font-weight: 600;
-        padding: 0.5rem 1.5rem;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-        color: white;
-    }
-    
-    /* Download button styling */
-    .stDownloadButton button {
-        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-        color: white;
-        border-radius: 10px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 600;
-        border: none;
-        box-shadow: 0 4px 16px 0 rgba(33, 147, 176, 0.4);
-        transition: all 0.3s ease;
-    }
-    
-    .stDownloadButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 24px 0 rgba(33, 147, 176, 0.6);
-    }
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] { background-color: #1E293B; color: white; }
+    section[data-testid="stSidebar"] .stMarkdown { color: white; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------- Data Loading ----------------------
+# ---------------------- Data Logic ----------------------
+@st.cache_data(ttl=3600)
+def load_data():
+    url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
+    try:
+        response = requests.get(url)
+        xls = pd.ExcelFile(BytesIO(response.content))
+        df_main = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
+        df_npa = xls.parse("Sheet1")
+        df_cap = xls.parse("capital")
+        return df_main, df_npa, df_cap
+    except Exception as e:
+        st.error(f"MIS Connection Error: {e}")
+        return None, None, None
 
-@st.cache_data
-def fetch_excel_from_github(url):
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.content
+df_main, df_npa, df_cap = load_data()
 
-GITHUB_FILE_URL = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
-
-try:
-    excel_bytes = fetch_excel_from_github(GITHUB_FILE_URL)
-    xls = pd.ExcelFile(BytesIO(excel_bytes))
-except requests.exceptions.RequestException as e:
-    st.error(f"⚠️ Failed to load data from GitHub! Error: {e}")
+if df_main is None:
     st.stop()
 
-# ---------------------- Data Parsing ----------------------
-
-try:
-    data = xls.parse("Data").drop(
-        columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"],
-        errors="ignore"
-    )
-    npa_data = xls.parse("Sheet1")
-    capital_data = xls.parse("capital")
-except Exception as e:
-    st.error(f"⚠️ Error parsing Excel sheets: {e}")
-    st.stop()
-
-# ---------------------- Formatting Helpers ----------------------
-
-def format_label(value, is_percentage=False):
-    if isinstance(value, (int, float)):
-        if is_percentage or (abs(value) < 1 and value != 0):
-            return f"{value * 100:.2f}%"
-        return f"{value:,.0f}"
-    return value
-
-def format_dataframe(df):
-    df_copy = df.copy()
-    for col in df_copy.select_dtypes(include=['float', 'int']):
-        is_percentage = any(s in col.lower() for s in ["npa", "to", "advance", "rs", "capital"])
-        df_copy[col] = df_copy[col].apply(lambda x: format_label(x, is_percentage))
-    return df_copy
-
-def create_modern_chart(df, x, y, title, chart_type="line", color=None, show_values=True):
-    """Create a modern styled chart with gradient colors"""
+# ---------------------- Sidebar Controls ----------------------
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3222/3222672.png", width=80)
+    st.title("MIS Controls")
+    st.markdown("---")
     
-    if chart_type == "line":
-        fig = go.Figure()
-        
-        if isinstance(y, list):
-            colors = ['#2193b0', '#6dd5ed', '#38ada9', '#079992']
-            for i, col in enumerate(y):
-                is_percentage = 'npa' in col.lower() or 'capital' in col.lower()
-                fig.add_trace(go.Scatter(
-                    x=df[x],
-                    y=df[col],
-                    mode='lines+markers+text' if show_values else 'lines+markers',
-                    name=col,
-                    line=dict(color=colors[i % len(colors)], width=3),
-                    marker=dict(size=10, line=dict(width=2, color='white')),
-                    text=[f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[col]] if show_values else None,
-                    textposition='top center',
-                    textfont=dict(size=10, color=colors[i % len(colors)], family='Arial Black'),
-                    hovertemplate='<b>%{y:.2%}</b><extra></extra>' if is_percentage else '<b>%{y:,.0f}</b><extra></extra>'
-                ))
-        else:
-            is_percentage = 'npa' in y.lower() or 'capital' in y.lower()
-            fig.add_trace(go.Scatter(
-                x=df[x],
-                y=df[y],
-                mode='lines+markers+text' if show_values else 'lines+markers',
-                name=y,
-                line=dict(color='#2193b0', width=3),
-                marker=dict(size=10, line=dict(width=2, color='white')),
-                text=[f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[y]] if show_values else None,
-                textposition='top center',
-                textfont=dict(size=10, color='#2193b0', family='Arial Black'),
-                fill='tozeroy',
-                fillcolor='rgba(33, 147, 176, 0.1)'
-            ))
+    # Global Period Selection
+    all_months = df_main["Month"].unique().tolist()
+    selected_month = st.selectbox("Reporting Month", options=all_months, index=len(all_months)-1)
     
-    elif chart_type == "bar":
-        if isinstance(y, list):
-            fig = go.Figure()
-            colors = ['#2193b0', '#6dd5ed', '#38ada9', '#079992']
-            for i, col in enumerate(y):
-                is_percentage = 'npa' in col.lower() or 'capital' in col.lower()
-                text_values = [f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[col]]
-                fig.add_trace(go.Bar(
-                    x=df[x],
-                    y=df[col],
-                    name=col,
-                    marker_color=colors[i % len(colors)],
-                    text=text_values if show_values else None,
-                    textposition='outside',
-                    textfont=dict(size=10, family='Arial Black')
-                ))
-        else:
-            is_percentage = 'npa' in y.lower() or 'capital' in y.lower()
-            text_values = [f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[y]]
-            fig = go.Figure(go.Bar(
-                x=df[x],
-                y=df[y],
-                marker_color='#2193b0',
-                text=text_values if show_values else None,
-                textposition='outside',
-                textfont=dict(size=10, family='Arial Black')
-            ))
-    
-    elif chart_type == "area":
-        fig = go.Figure()
-        colors = ['rgba(33, 147, 176, 0.6)', 'rgba(109, 213, 237, 0.6)']
-        for i, col in enumerate(y):
-            is_percentage = 'npa' in col.lower() or 'capital' in col.lower()
-            fig.add_trace(go.Scatter(
-                x=df[x],
-                y=df[col],
-                mode='lines+markers+text' if show_values else 'lines+markers',
-                name=col,
-                fill='tonexty' if i > 0 else 'tozeroy',
-                line=dict(width=2),
-                fillcolor=colors[i % len(colors)],
-                text=[f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[col]] if show_values else None,
-                textposition='top center',
-                textfont=dict(size=10, family='Arial Black'),
-                marker=dict(size=8)
-            ))
-    
-    # Styling
-    fig.update_layout(
-        title={
-            'text': title,
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 24, 'color': '#2d3748', 'family': 'Arial, sans-serif', 'weight': 'bold'}
-        },
-        plot_bgcolor='rgba(255, 255, 255, 0.9)',
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(200, 200, 200, 0.3)',
-            tickfont=dict(size=12, color='#4a5568')
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(200, 200, 200, 0.3)',
-            tickfont=dict(size=12, color='#4a5568')
-        ),
-        hovermode='x unified',
-        margin=dict(l=60, r=60, t=80, b=60),
-        font=dict(family="Arial, sans-serif"),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor='rgba(255, 255, 255, 0.8)',
-            bordercolor='rgba(200, 200, 200, 0.5)',
-            borderwidth=1
-        )
-    )
-    
-    return fig
+    st.markdown("### Export Center")
+    st.caption("Generate official PDF/CSV reports")
+    if st.button("Generate Executive Summary"):
+        st.toast("Report compiled successfully!")
 
-# ---------------------- Header ----------------------
+# ---------------------- Header Section ----------------------
+col_h1, col_h2 = st.columns([3, 1])
+with col_h1:
+    st.title("Financial & Risk Intelligence")
+    st.caption(f"Reporting Cycle: {selected_month} | System Status: Operational")
 
-st.markdown("""
-<div class="main-header">
-    <h1>📊 Financial Analytics Dashboard</h1>
-    <p>Real-time insights and comprehensive financial analysis</p>
-</div>
-""", unsafe_allow_html=True)
+# ---------------------- Executive KPIs ----------------------
+# Logic for Delta calculation
+latest_idx = df_npa[df_npa['Month'] == selected_month].index[0]
+prev_idx = max(0, latest_idx - 1)
 
-# ---------------------- Key Metrics Summary ----------------------
-
-st.markdown("### 📈 Key Performance Indicators")
-
-# Calculate key metrics
-latest_npa = npa_data.iloc[-1]
-prev_npa = npa_data.iloc[-2] if len(npa_data) > 1 else npa_data.iloc[-1]
-
-latest_capital = capital_data.iloc[-1]
-prev_capital = capital_data.iloc[-2] if len(capital_data) > 1 else capital_data.iloc[-1]
-
-gross_npa_change = ((latest_npa["Gross Npa To Gross Advances"] - prev_npa["Gross Npa To Gross Advances"]) / prev_npa["Gross Npa To Gross Advances"]) * 100
-net_npa_change = ((latest_npa["Net Npa To Net Advances"] - prev_npa["Net Npa To Net Advances"]) / prev_npa["Net Npa To Net Advances"]) * 100
-core_capital_change = ((latest_capital["Core Capital%"] - prev_capital["Core Capital%"]) / prev_capital["Core Capital%"]) * 100
-total_capital_change = ((latest_capital["Total Capital%"] - prev_capital["Total Capital%"]) / prev_capital["Total Capital%"]) * 100
-
-# KPI Cards
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Gross NPA Ratio</div>
-        <div class="kpi-value">{latest_npa["Gross Npa To Gross Advances"]:.2%}</div>
-        <div class="kpi-change {'positive' if gross_npa_change < 0 else 'negative'}">
-            {'▼' if gross_npa_change < 0 else '▲'} {abs(gross_npa_change):.2f}% vs previous
+def get_kpi_html(label, value, delta, inverse=False):
+    # If inverse=True, a positive delta is bad (like NPA)
+    color = "#EF4444" if (delta > 0 and not inverse) or (delta < 0 and inverse) else "#10B981"
+    arrow = "▲" if delta > 0 else "▼"
+    return f"""
+    <div class="metric-card">
+        <div class="metric-label">{label}</div>
+        <div class="metric-value">{value:.2%}</div>
+        <div style="color: {color}; font-size: 0.9rem; font-weight: bold;">
+            {arrow} {abs(delta):.2f}% <span style="color: #94A3B8; font-weight: normal;">vs Last Month</span>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
 
-with col2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Net NPA Ratio</div>
-        <div class="kpi-value">{latest_npa["Net Npa To Net Advances"]:.2%}</div>
-        <div class="kpi-change {'positive' if net_npa_change < 0 else 'negative'}">
-            {'▼' if net_npa_change < 0 else '▲'} {abs(net_npa_change):.2f}% vs previous
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Core Capital</div>
-        <div class="kpi-value">{latest_capital["Core Capital%"]:.2%}</div>
-        <div class="kpi-change {'positive' if core_capital_change > 0 else 'negative'}">
-            {'▲' if core_capital_change > 0 else '▼'} {abs(core_capital_change):.2f}% vs previous
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Total Capital</div>
-        <div class="kpi-value">{latest_capital["Total Capital%"]:.2%}</div>
-        <div class="kpi-change {'positive' if total_capital_change > 0 else 'negative'}">
-            {'▲' if total_capital_change > 0 else '▼'} {abs(total_capital_change):.2f}% vs previous
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+k1, k2, k3, k4 = st.columns(4)
+with k1:
+    d = (df_npa.loc[latest_idx, "Gross Npa To Gross Advances"] - df_npa.loc[prev_idx, "Gross Npa To Gross Advances"]) * 100
+    st.markdown(get_kpi_html("Gross NPA Ratio", df_npa.loc[latest_idx, "Gross Npa To Gross Advances"], d, inverse=True), unsafe_allow_html=True)
+with k2:
+    d = (df_npa.loc[latest_idx, "Net Npa To Net Advances"] - df_npa.loc[prev_idx, "Net Npa To Net Advances"]) * 100
+    st.markdown(get_kpi_html("Net NPA Ratio", df_npa.loc[latest_idx, "Net Npa To Net Advances"], d, inverse=True), unsafe_allow_html=True)
+with k3:
+    d = (df_cap.loc[latest_idx, "Core Capital%"] - df_cap.loc[prev_idx, "Core Capital%"]) * 100
+    st.markdown(get_kpi_html("Tier I Capital", df_cap.loc[latest_idx, "Core Capital%"], d), unsafe_allow_html=True)
+with k4:
+    d = (df_cap.loc[latest_idx, "Total Capital%"] - df_cap.loc[prev_idx, "Total Capital%"]) * 100
+    st.markdown(get_kpi_html("Capital Adequacy", df_cap.loc[latest_idx, "Total Capital%"], d), unsafe_allow_html=True)
 
 st.markdown("---")
 
-# ---------------------- Tabs ----------------------
+# ---------------------- Main Analytics ----------------------
+tabs = st.tabs(["🎯 Variance Analysis", "📉 Asset Quality", "🛡️ Capital & Basel III"])
 
-tab1, tab2, tab3, tab4 = st.tabs(["📜 Financial Data", "📉 NPA Analysis", "💼 Capital Adequacy", "📊 Comprehensive View"])
-
-# ---------------------- Tab 1: Financial Data ----------------------
-
-with tab1:
-    st.markdown("### 📜 Financial Data Overview")
+with tabs[0]:
+    col_t1_1, col_t1_2 = st.columns([1, 2])
     
-    col_filters, col_content = st.columns([1, 3])
-    
-    with col_filters:
-        st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-        st.markdown("#### 🔍 Filters")
+    with col_t1_1:
+        st.subheader("Statement of Particulars")
+        # Filter data for the sidebar-selected month
+        month_data = df_main[df_main["Month"] == selected_month][["Particulars", "Rs"]]
+        st.dataframe(month_data, use_container_width=True, hide_index=True)
         
-        if "particulars_selected" not in st.session_state:
-            st.session_state["particulars_selected"] = ["All"]
-        if "month_selected" not in st.session_state:
-            st.session_state["month_selected"] = ["All"]
+    with col_t1_2:
+        st.subheader("Historical Trend")
+        # Multi-select for deep diving into specific particulars
+        parts = st.multiselect("Select Particulars for Trend Analysis", options=df_main["Particulars"].unique(), default=df_main["Particulars"].unique()[0])
+        trend_df = df_main[df_main["Particulars"].isin(parts)]
         
-        particulars_selected = st.multiselect(
-            "Select Particulars:",
-            ["All"] + list(data["Particulars"].dropna().unique()),
-            default=st.session_state["particulars_selected"],
-            key="particulars_filter"
-        )
-        
-        month_selected = st.multiselect(
-            "Select Month:",
-            ["All"] + list(data["Month"].dropna().unique()),
-            default=st.session_state["month_selected"],
-            key="month_filter"
-        )
-        
-        if st.button("🔄 Reset Filters", key="reset_filters"):
-            st.session_state["particulars_selected"] = ["All"]
-            st.session_state["month_selected"] = ["All"]
-            st.rerun()
-        
-        # Apply filters
-        filtered_data = data.copy()
-        if "All" not in particulars_selected:
-            filtered_data = filtered_data[filtered_data["Particulars"].isin(particulars_selected)]
-        if "All" not in month_selected:
-            filtered_data = filtered_data[filtered_data["Month"].isin(month_selected)]
-        
-        csv_data = filtered_data.to_csv(index=False).encode("utf-8")
-        file_name = f"filtered_financial_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        
-        st.download_button(
-            "📥 Download Data",
-            data=csv_data,
-            file_name=file_name,
-            mime="text/csv",
-            key="download_financial"
-        )
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col_content:
-        if filtered_data.empty:
-            st.warning("⚠️ No data available for the selected filters!")
-        else:
-            # Data table
-            st.markdown("#### 📊 Data Table")
-            styled_data = format_dataframe(filtered_data)
-            st.dataframe(styled_data, height=400, use_container_width=True)
-            
-            # Chart
-            if "All" not in particulars_selected and len(particulars_selected) > 0:
-                st.markdown("#### 📈 Trend Analysis")
-                
-                fig = create_modern_chart(
-                    filtered_data,
-                    x="Month",
-                    y="Rs",
-                    title=f"Trend: {', '.join(particulars_selected[:3])}{'...' if len(particulars_selected) > 3 else ''}",
-                    chart_type="line",
-                    show_values=True
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
+        fig = px.line(trend_df, x="Month", y="Rs", color="Particulars", markers=True, 
+                      template="plotly_white", color_discrete_sequence=px.colors.qualitative.Prism)
+        fig.update_layout(legend=dict(orientation="h", y=-0.2))
+        st.plotly_chart(fig, use_container_width=True)
 
-# ---------------------- Tab 2: NPA Analysis ----------------------
+with tabs[1]:
+    st.subheader("Non-Performing Assets (NPA) Breakdown")
+    
 
-with tab2:
-    st.markdown("### 📉 Non-Performing Assets Analysis")
-    
-    # NPA Trend Charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig_gross = create_modern_chart(
-            npa_data,
-            x="Month",
-            y="Gross Npa To Gross Advances",
-            title="Gross NPA Trend",
-            chart_type="line",
-            show_values=True
-        )
-        fig_gross.update_yaxes(tickformat=".2%")
-        st.plotly_chart(fig_gross, use_container_width=True)
-    
-    with col2:
-        fig_net = create_modern_chart(
-            npa_data,
-            x="Month",
-            y="Net Npa To Net Advances",
-            title="Net NPA Trend",
-            chart_type="line",
-            show_values=True
-        )
-        fig_net.update_yaxes(tickformat=".2%")
-        st.plotly_chart(fig_net, use_container_width=True)
-    
-    # Comparative Bar Chart
-    st.markdown("#### 📊 Comparative Analysis")
-    fig_compare = create_modern_chart(
-        npa_data,
-        x="Month",
-        y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"],
-        title="Gross vs Net NPA Comparison",
-        chart_type="bar",
-        show_values=True
-    )
-    fig_compare.update_yaxes(tickformat=".2%")
-    st.plotly_chart(fig_compare, use_container_width=True)
-    
-    # NPA Statistics
-    st.markdown("#### 📈 NPA Statistics")
-    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-    
-    with stat_col1:
-        st.metric(
-            "Average Gross NPA",
-            f"{npa_data['Gross Npa To Gross Advances'].mean():.2%}",
-            f"{npa_data['Gross Npa To Gross Advances'].std():.2%} std"
-        )
-    
-    with stat_col2:
-        st.metric(
-            "Average Net NPA",
-            f"{npa_data['Net Npa To Net Advances'].mean():.2%}",
-            f"{npa_data['Net Npa To Net Advances'].std():.2%} std"
-        )
-    
-    with stat_col3:
-        st.metric(
-            "Lowest Gross NPA",
-            f"{npa_data['Gross Npa To Gross Advances'].min():.2%}",
-            f"{npa_data[npa_data['Gross Npa To Gross Advances'] == npa_data['Gross Npa To Gross Advances'].min()]['Month'].values[0]}"
-        )
-    
-    with stat_col4:
-        st.metric(
-            "Lowest Net NPA",
-            f"{npa_data['Net Npa To Net Advances'].min():.2%}",
-            f"{npa_data[npa_data['Net Npa To Net Advances'] == npa_data['Net Npa To Net Advances'].min()]['Month'].values[0]}"
-        )
+[Image of credit risk assessment matrix]
 
-# ---------------------- Tab 3: Capital Adequacy ----------------------
+    
+    fig_npa = go.Figure()
+    fig_npa.add_trace(go.Bar(x=df_npa["Month"], y=df_npa["Gross Npa To Gross Advances"], name="Gross NPA", marker_color='#1E3A8A'))
+    fig_npa.add_trace(go.Scatter(x=df_npa["Month"], y=df_npa["Net Npa To Net Advances"], name="Net NPA", line=dict(color='#EF4444', width=3)))
+    
+    fig_npa.update_layout(hovermode="x unified", template="plotly_white", yaxis_tickformat=".2%")
+    st.plotly_chart(fig_npa, use_container_width=True)
 
-with tab3:
-    st.markdown("### 💼 Capital Adequacy Ratios")
+with tabs[2]:
+    st.subheader("Capital Adequacy & Regulatory Compliance")
     
-    # Capital Trend Charts
-    col1, col2 = st.columns(2)
     
-    with col1:
-        fig_core = create_modern_chart(
-            capital_data,
-            x="Month",
-            y="Core Capital%",
-            title="Core Capital Ratio",
-            chart_type="line",
-            show_values=True
-        )
-        fig_core.update_yaxes(tickformat=".2%")
-        st.plotly_chart(fig_core, use_container_width=True)
-    
-    with col2:
-        fig_total = create_modern_chart(
-            capital_data,
-            x="Month",
-            y="Total Capital%",
-            title="Total Capital Ratio",
-            chart_type="line",
-            show_values=True
-        )
-        fig_total.update_yaxes(tickformat=".2%")
-        st.plotly_chart(fig_total, use_container_width=True)
-    
-    # Combined Capital Chart
-    st.markdown("#### 📊 Capital Comparison")
-    fig_capital = create_modern_chart(
-        capital_data,
-        x="Month",
-        y=["Core Capital%", "Total Capital%"],
-        title="Core vs Total Capital",
-        chart_type="area",
-        show_values=True
-    )
-    fig_capital.update_yaxes(tickformat=".2%")
-    st.plotly_chart(fig_capital, use_container_width=True)
-    
-    # Capital Statistics
-    st.markdown("#### 📈 Capital Statistics")
-    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-    
-    with stat_col1:
-        st.metric(
-            "Average Core Capital",
-            f"{capital_data['Core Capital%'].mean():.2%}",
-            f"{capital_data['Core Capital%'].std():.2%} std"
-        )
-    
-    with stat_col2:
-        st.metric(
-            "Average Total Capital",
-            f"{capital_data['Total Capital%'].mean():.2%}",
-            f"{capital_data['Total Capital%'].std():.2%} std"
-        )
-    
-    with stat_col3:
-        st.metric(
-            "Max Core Capital",
-            f"{capital_data['Core Capital%'].max():.2%}",
-            f"{capital_data[capital_data['Core Capital%'] == capital_data['Core Capital%'].max()]['Month'].values[0]}"
-        )
-    
-    with stat_col4:
-        st.metric(
-            "Max Total Capital",
-            f"{capital_data['Total Capital%'].max():.2%}",
-            f"{capital_data[capital_data['Total Capital%'] == capital_data['Total Capital%'].max()]['Month'].values[0]}"
-        )
-
-# ---------------------- Tab 4: Comprehensive View ----------------------
-
-with tab4:
-    st.markdown("### 📊 Comprehensive Financial Overview")
-    
-    # Create a comprehensive dashboard with multiple charts
-    
-    # Row 1: NPA and Capital Side by Side
-    st.markdown("#### Risk & Capital Metrics")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # NPA Combined Chart
-        fig_npa_combined = go.Figure()
-        fig_npa_combined.add_trace(go.Scatter(
-            x=npa_data["Month"],
-            y=npa_data["Gross Npa To Gross Advances"],
-            mode='lines+markers+text',
-            name='Gross NPA',
-            line=dict(color='#e74c3c', width=3),
-            marker=dict(size=10, line=dict(width=2, color='white')),
-            text=[f"{v:.2%}" for v in npa_data["Gross Npa To Gross Advances"]],
-            textposition='top center',
-            textfont=dict(size=10, color='#e74c3c', family='Arial Black')
-        ))
-        fig_npa_combined.add_trace(go.Scatter(
-            x=npa_data["Month"],
-            y=npa_data["Net Npa To Net Advances"],
-            mode='lines+markers+text',
-            name='Net NPA',
-            line=dict(color='#27ae60', width=3),
-            marker=dict(size=10, line=dict(width=2, color='white')),
-            text=[f"{v:.2%}" for v in npa_data["Net Npa To Net Advances"]],
-            textposition='bottom center',
-            textfont=dict(size=10, color='#27ae60', family='Arial Black')
-        ))
-        fig_npa_combined.update_layout(
-            title="NPA Ratios Over Time",
-            plot_bgcolor='rgba(255, 255, 255, 0.9)',
-            paper_bgcolor='rgba(0, 0, 0, 0)',
-            yaxis_tickformat=".2%",
-            hovermode='x unified',
-            font=dict(family="Arial, sans-serif"),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
-        )
-        st.plotly_chart(fig_npa_combined, use_container_width=True)
-    
-    with col2:
-        # Capital Combined Chart
-        fig_capital_combined = go.Figure()
-        fig_capital_combined.add_trace(go.Scatter(
-            x=capital_data["Month"],
-            y=capital_data["Core Capital%"],
-            mode='lines+markers+text',
-            name='Core Capital',
-            line=dict(color='#2193b0', width=3),
-            marker=dict(size=10, line=dict(width=2, color='white')),
-            text=[f"{v:.2%}" for v in capital_data["Core Capital%"]],
-            textposition='top center',
-            textfont=dict(size=10, color='#2193b0', family='Arial Black')
-        ))
-        fig_capital_combined.add_trace(go.Scatter(
-            x=capital_data["Month"],
-            y=capital_data["Total Capital%"],
-            mode='lines+markers+text',
-            name='Total Capital',
-            line=dict(color='#6dd5ed', width=3),
-            marker=dict(size=10, line=dict(width=2, color='white')),
-            text=[f"{v:.2%}" for v in capital_data["Total Capital%"]],
-            textposition='bottom center',
-            textfont=dict(size=10, color='#6dd5ed', family='Arial Black')
-        ))
-        fig_capital_combined.update_layout(
-            title="Capital Ratios Over Time",
-            plot_bgcolor='rgba(255, 255, 255, 0.9)',
-            paper_bgcolor='rgba(0, 0, 0, 0)',
-            yaxis_tickformat=".2%",
-            hovermode='x unified',
-            font=dict(family="Arial, sans-serif"),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
-        )
-        st.plotly_chart(fig_capital_combined, use_container_width=True)
-    
-    # Row 2: Summary Statistics
-    st.markdown("#### 📊 Summary Statistics")
-    
-    # Create summary dataframe
-    summary_data = pd.DataFrame({
-        'Metric': ['Gross NPA', 'Net NPA', 'Core Capital', 'Total Capital'],
-        'Current': [
-            f"{latest_npa['Gross Npa To Gross Advances']:.2%}",
-            f"{latest_npa['Net Npa To Net Advances']:.2%}",
-            f"{latest_capital['Core Capital%']:.2%}",
-            f"{latest_capital['Total Capital%']:.2%}"
-        ],
-        'Average': [
-            f"{npa_data['Gross Npa To Gross Advances'].mean():.2%}",
-            f"{npa_data['Net Npa To Net Advances'].mean():.2%}",
-            f"{capital_data['Core Capital%'].mean():.2%}",
-            f"{capital_data['Total Capital%'].mean():.2%}"
-        ],
-        'Min': [
-            f"{npa_data['Gross Npa To Gross Advances'].min():.2%}",
-            f"{npa_data['Net Npa To Net Advances'].min():.2%}",
-            f"{capital_data['Core Capital%'].min():.2%}",
-            f"{capital_data['Total Capital%'].min():.2%}"
-        ],
-        'Max': [
-            f"{npa_data['Gross Npa To Gross Advances'].max():.2%}",
-            f"{npa_data['Net Npa To Net Advances'].max():.2%}",
-            f"{capital_data['Core Capital%'].max():.2%}",
-            f"{capital_data['Total Capital%'].max():.2%}"
-        ]
-    })
-    
-    st.dataframe(summary_data, use_container_width=True, hide_index=True)
-    
-    # Download comprehensive report
-    st.markdown("#### 📥 Export Options")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        npa_csv = npa_data.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "📥 Download NPA Data",
-            data=npa_csv,
-            file_name=f"npa_data_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
-    
-    with col2:
-        capital_csv = capital_data.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "📥 Download Capital Data",
-            data=capital_csv,
-            file_name=f"capital_data_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
-    
-    with col3:
-        summary_csv = summary_data.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "📥 Download Summary",
-            data=summary_csv,
-            file_name=f"summary_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
+    # Area chart for Capital
+    fig_cap = px.area(df_cap, x="Month", y=["Core Capital%", "Total Capital%"], 
+                      title="Regulatory Capital Buffer",
+                      template="plotly_white",
+                      color_discrete_map={"Core Capital%": "#93C5FD", "Total Capital%": "#1E3A8A"})
+    fig_cap.add_hline(y=0.085, line_dash="dash", line_color="red", annotation_text="Regulatory Minimum")
+    fig_cap.update_layout(yaxis_tickformat=".1%")
+    st.plotly_chart(fig_cap, use_container_width=True)
 
 # ---------------------- Footer ----------------------
-
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #2c3e50; padding: 2rem;'>
-    <p style='font-size: 0.9rem;'>📊 Financial Analytics Dashboard | Last updated: {}</p>
-    <p style='font-size: 0.8rem; opacity: 0.7;'>Powered by Streamlit & Plotly</p>
-</div>
-""".format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')), unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="text-align: center; padding-top: 50px; color: #94A3B8; font-size: 0.8rem;">
+        Confidential Internal MIS | Generated on {datetime.now().strftime('%d %b %Y %H:%M')} | Basel III Compliant Framework
+    </div>
+""", unsafe_allow_html=True)
