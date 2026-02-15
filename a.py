@@ -23,12 +23,12 @@ st.markdown("""
 <style>
     /* Main background gradient */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
     
     /* Custom header styling */
     .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
         padding: 2rem;
         border-radius: 15px;
         text-align: center;
@@ -68,7 +68,7 @@ st.markdown("""
     }
     
     .kpi-title {
-        color: #667eea;
+        color: #2193b0;
         font-size: 0.9rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -137,25 +137,25 @@ st.markdown("""
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
         color: white;
     }
     
     /* Download button styling */
     .stDownloadButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
         color: white;
         border-radius: 10px;
         padding: 0.5rem 1.5rem;
         font-weight: 600;
         border: none;
-        box-shadow: 0 4px 16px 0 rgba(102, 126, 234, 0.4);
+        box-shadow: 0 4px 16px 0 rgba(33, 147, 176, 0.4);
         transition: all 0.3s ease;
     }
     
     .stDownloadButton button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 24px 0 rgba(102, 126, 234, 0.6);
+        box-shadow: 0 6px 24px 0 rgba(33, 147, 176, 0.6);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -206,70 +206,89 @@ def format_dataframe(df):
         df_copy[col] = df_copy[col].apply(lambda x: format_label(x, is_percentage))
     return df_copy
 
-def create_modern_chart(df, x, y, title, chart_type="line", color=None):
+def create_modern_chart(df, x, y, title, chart_type="line", color=None, show_values=True):
     """Create a modern styled chart with gradient colors"""
     
     if chart_type == "line":
         fig = go.Figure()
         
         if isinstance(y, list):
-            colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe']
+            colors = ['#2193b0', '#6dd5ed', '#38ada9', '#079992']
             for i, col in enumerate(y):
+                is_percentage = 'npa' in col.lower() or 'capital' in col.lower()
                 fig.add_trace(go.Scatter(
                     x=df[x],
                     y=df[col],
-                    mode='lines+markers',
+                    mode='lines+markers+text' if show_values else 'lines+markers',
                     name=col,
                     line=dict(color=colors[i % len(colors)], width=3),
-                    marker=dict(size=8, line=dict(width=2, color='white')),
-                    hovertemplate='<b>%{y:.2%}</b><extra></extra>' if 'npa' in col.lower() or 'capital' in col.lower() else '<b>%{y:,.0f}</b><extra></extra>'
+                    marker=dict(size=10, line=dict(width=2, color='white')),
+                    text=[f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[col]] if show_values else None,
+                    textposition='top center',
+                    textfont=dict(size=10, color=colors[i % len(colors)], family='Arial Black'),
+                    hovertemplate='<b>%{y:.2%}</b><extra></extra>' if is_percentage else '<b>%{y:,.0f}</b><extra></extra>'
                 ))
         else:
+            is_percentage = 'npa' in y.lower() or 'capital' in y.lower()
             fig.add_trace(go.Scatter(
                 x=df[x],
                 y=df[y],
-                mode='lines+markers',
+                mode='lines+markers+text' if show_values else 'lines+markers',
                 name=y,
-                line=dict(color='#667eea', width=3),
-                marker=dict(size=8, line=dict(width=2, color='white')),
+                line=dict(color='#2193b0', width=3),
+                marker=dict(size=10, line=dict(width=2, color='white')),
+                text=[f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[y]] if show_values else None,
+                textposition='top center',
+                textfont=dict(size=10, color='#2193b0', family='Arial Black'),
                 fill='tozeroy',
-                fillcolor='rgba(102, 126, 234, 0.1)'
+                fillcolor='rgba(33, 147, 176, 0.1)'
             ))
     
     elif chart_type == "bar":
         if isinstance(y, list):
             fig = go.Figure()
-            colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe']
+            colors = ['#2193b0', '#6dd5ed', '#38ada9', '#079992']
             for i, col in enumerate(y):
+                is_percentage = 'npa' in col.lower() or 'capital' in col.lower()
+                text_values = [f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[col]]
                 fig.add_trace(go.Bar(
                     x=df[x],
                     y=df[col],
                     name=col,
                     marker_color=colors[i % len(colors)],
-                    text=df[col].apply(lambda v: f"{v:.2%}" if v < 1 else f"{v:,.0f}"),
-                    textposition='outside'
+                    text=text_values if show_values else None,
+                    textposition='outside',
+                    textfont=dict(size=10, family='Arial Black')
                 ))
         else:
+            is_percentage = 'npa' in y.lower() or 'capital' in y.lower()
+            text_values = [f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[y]]
             fig = go.Figure(go.Bar(
                 x=df[x],
                 y=df[y],
-                marker_color='#667eea',
-                text=df[y].apply(lambda v: f"{v:.2%}" if v < 1 else f"{v:,.0f}"),
-                textposition='outside'
+                marker_color='#2193b0',
+                text=text_values if show_values else None,
+                textposition='outside',
+                textfont=dict(size=10, family='Arial Black')
             ))
     
     elif chart_type == "area":
         fig = go.Figure()
-        colors = ['rgba(102, 126, 234, 0.6)', 'rgba(118, 75, 162, 0.6)']
+        colors = ['rgba(33, 147, 176, 0.6)', 'rgba(109, 213, 237, 0.6)']
         for i, col in enumerate(y):
+            is_percentage = 'npa' in col.lower() or 'capital' in col.lower()
             fig.add_trace(go.Scatter(
                 x=df[x],
                 y=df[col],
-                mode='lines',
+                mode='lines+markers+text' if show_values else 'lines+markers',
                 name=col,
                 fill='tonexty' if i > 0 else 'tozeroy',
                 line=dict(width=2),
-                fillcolor=colors[i % len(colors)]
+                fillcolor=colors[i % len(colors)],
+                text=[f"{v:.2%}" if is_percentage else f"{v:,.0f}" for v in df[col]] if show_values else None,
+                textposition='top center',
+                textfont=dict(size=10, family='Arial Black'),
+                marker=dict(size=8)
             ))
     
     # Styling
@@ -455,22 +474,14 @@ with tab1:
             if "All" not in particulars_selected and len(particulars_selected) > 0:
                 st.markdown("#### 📈 Trend Analysis")
                 
-                show_data_labels = st.checkbox("Show Data Labels", key="show_labels_financial")
-                
                 fig = create_modern_chart(
                     filtered_data,
                     x="Month",
                     y="Rs",
                     title=f"Trend: {', '.join(particulars_selected[:3])}{'...' if len(particulars_selected) > 3 else ''}",
-                    chart_type="line"
+                    chart_type="line",
+                    show_values=True
                 )
-                
-                if show_data_labels:
-                    fig.update_traces(
-                        text=[f"{v:,.0f}" for v in filtered_data["Rs"]],
-                        textposition="top center",
-                        mode="lines+markers+text"
-                    )
                 
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -488,7 +499,8 @@ with tab2:
             x="Month",
             y="Gross Npa To Gross Advances",
             title="Gross NPA Trend",
-            chart_type="line"
+            chart_type="line",
+            show_values=True
         )
         fig_gross.update_yaxes(tickformat=".2%")
         st.plotly_chart(fig_gross, use_container_width=True)
@@ -499,7 +511,8 @@ with tab2:
             x="Month",
             y="Net Npa To Net Advances",
             title="Net NPA Trend",
-            chart_type="line"
+            chart_type="line",
+            show_values=True
         )
         fig_net.update_yaxes(tickformat=".2%")
         st.plotly_chart(fig_net, use_container_width=True)
@@ -511,7 +524,8 @@ with tab2:
         x="Month",
         y=["Gross Npa To Gross Advances", "Net Npa To Net Advances"],
         title="Gross vs Net NPA Comparison",
-        chart_type="bar"
+        chart_type="bar",
+        show_values=True
     )
     fig_compare.update_yaxes(tickformat=".2%")
     st.plotly_chart(fig_compare, use_container_width=True)
@@ -562,7 +576,8 @@ with tab3:
             x="Month",
             y="Core Capital%",
             title="Core Capital Ratio",
-            chart_type="line"
+            chart_type="line",
+            show_values=True
         )
         fig_core.update_yaxes(tickformat=".2%")
         st.plotly_chart(fig_core, use_container_width=True)
@@ -573,7 +588,8 @@ with tab3:
             x="Month",
             y="Total Capital%",
             title="Total Capital Ratio",
-            chart_type="line"
+            chart_type="line",
+            show_values=True
         )
         fig_total.update_yaxes(tickformat=".2%")
         st.plotly_chart(fig_total, use_container_width=True)
@@ -585,7 +601,8 @@ with tab3:
         x="Month",
         y=["Core Capital%", "Total Capital%"],
         title="Core vs Total Capital",
-        chart_type="area"
+        chart_type="area",
+        show_values=True
     )
     fig_capital.update_yaxes(tickformat=".2%")
     st.plotly_chart(fig_capital, use_container_width=True)
@@ -639,25 +656,39 @@ with tab4:
         fig_npa_combined.add_trace(go.Scatter(
             x=npa_data["Month"],
             y=npa_data["Gross Npa To Gross Advances"],
-            mode='lines+markers',
+            mode='lines+markers+text',
             name='Gross NPA',
-            line=dict(color='#f56565', width=3),
-            marker=dict(size=8)
+            line=dict(color='#e74c3c', width=3),
+            marker=dict(size=10, line=dict(width=2, color='white')),
+            text=[f"{v:.2%}" for v in npa_data["Gross Npa To Gross Advances"]],
+            textposition='top center',
+            textfont=dict(size=10, color='#e74c3c', family='Arial Black')
         ))
         fig_npa_combined.add_trace(go.Scatter(
             x=npa_data["Month"],
             y=npa_data["Net Npa To Net Advances"],
-            mode='lines+markers',
+            mode='lines+markers+text',
             name='Net NPA',
-            line=dict(color='#48bb78', width=3),
-            marker=dict(size=8)
+            line=dict(color='#27ae60', width=3),
+            marker=dict(size=10, line=dict(width=2, color='white')),
+            text=[f"{v:.2%}" for v in npa_data["Net Npa To Net Advances"]],
+            textposition='bottom center',
+            textfont=dict(size=10, color='#27ae60', family='Arial Black')
         ))
         fig_npa_combined.update_layout(
             title="NPA Ratios Over Time",
             plot_bgcolor='rgba(255, 255, 255, 0.9)',
             paper_bgcolor='rgba(0, 0, 0, 0)',
             yaxis_tickformat=".2%",
-            hovermode='x unified'
+            hovermode='x unified',
+            font=dict(family="Arial, sans-serif"),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
         st.plotly_chart(fig_npa_combined, use_container_width=True)
     
@@ -667,25 +698,39 @@ with tab4:
         fig_capital_combined.add_trace(go.Scatter(
             x=capital_data["Month"],
             y=capital_data["Core Capital%"],
-            mode='lines+markers',
+            mode='lines+markers+text',
             name='Core Capital',
-            line=dict(color='#667eea', width=3),
-            marker=dict(size=8)
+            line=dict(color='#2193b0', width=3),
+            marker=dict(size=10, line=dict(width=2, color='white')),
+            text=[f"{v:.2%}" for v in capital_data["Core Capital%"]],
+            textposition='top center',
+            textfont=dict(size=10, color='#2193b0', family='Arial Black')
         ))
         fig_capital_combined.add_trace(go.Scatter(
             x=capital_data["Month"],
             y=capital_data["Total Capital%"],
-            mode='lines+markers',
+            mode='lines+markers+text',
             name='Total Capital',
-            line=dict(color='#764ba2', width=3),
-            marker=dict(size=8)
+            line=dict(color='#6dd5ed', width=3),
+            marker=dict(size=10, line=dict(width=2, color='white')),
+            text=[f"{v:.2%}" for v in capital_data["Total Capital%"]],
+            textposition='bottom center',
+            textfont=dict(size=10, color='#6dd5ed', family='Arial Black')
         ))
         fig_capital_combined.update_layout(
             title="Capital Ratios Over Time",
             plot_bgcolor='rgba(255, 255, 255, 0.9)',
             paper_bgcolor='rgba(0, 0, 0, 0)',
             yaxis_tickformat=".2%",
-            hovermode='x unified'
+            hovermode='x unified',
+            font=dict(family="Arial, sans-serif"),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
         st.plotly_chart(fig_capital_combined, use_container_width=True)
     
@@ -758,8 +803,8 @@ with tab4:
 
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: white; padding: 2rem;'>
+<div style='text-align: center; color: #2c3e50; padding: 2rem;'>
     <p style='font-size: 0.9rem;'>📊 Financial Analytics Dashboard | Last updated: {}</p>
-    <p style='font-size: 0.8rem; opacity: 0.8;'>Powered by Streamlit & Plotly</p>
+    <p style='font-size: 0.8rem; opacity: 0.7;'>Powered by Streamlit & Plotly</p>
 </div>
 """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')), unsafe_allow_html=True)
