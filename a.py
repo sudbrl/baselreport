@@ -50,7 +50,7 @@ def load_mis_data():
         xls = pd.ExcelFile(BytesIO(response.content))
         df_main = xls.parse("Data").drop(columns=["Helper", "Unnamed: 7", "Unnamed: 8", "Rs.1", "Rs.2", "Movements(%)"], errors="ignore")
         df_npa = xls.parse("Data")
-        df_cap = xls.parse("capital")
+        df_cap = xls.parse("Data")
         return df_main, df_npa, df_cap
     except Exception as e:
         st.error(f"MIS Connection Failure: {e}")
