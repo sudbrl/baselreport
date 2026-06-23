@@ -1,1014 +1,910 @@
 """
-Basel III Regulatory Reporting Dashboard
-Nepal Banking Sector — Streamlit Application
-Reads baseldata.xlsx and presents interactive compliance analytics
+Executive MIS Dashboard - Enhanced Version
+Basel Analytics | Financial Risk Intelligence Platform
 """
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import numpy as np
-import re
+from io import BytesIO
+from datetime import datetime
+import requests
 
-# ================================================================
-# 1. PAGE CONFIGURATION
-# ================================================================
+# ---------------------- Page Configuration ----------------------
 st.set_page_config(
-    page_title="Basel III Dashboard — NRB Compliance",
-    page_icon="🏛️",
+    page_title="Executive MIS | Basel Analytics",
+    page_icon="🏢",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# ── Palette ──────────────────────────────────────────────────────
-C = {
-    "bg":       "#0B0F19",
-    "card":     "#111827",
-    "card2":    "#1A2236",
-    "border":   "#1E2D4A",
-    "text":     "#E2E8F0",
-    "muted":    "#64748B",
-    "green":    "#10B981",
-    "cyan":     "#06B6D4",
-    "amber":    "#F59E0B",
-    "red":      "#EF4444",
-    "purple":   "#8B5CF6",
-    "blue":     "#3B82F6",
-    "pink":     "#EC4899",
-}
+# ---------------------- Custom CSS ----------------------
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    
+    :root {
+        --primary: #1E3A8A;
+        --primary-light: #3B82F6;
+        --secondary: #10B981;
+        --danger: #EF4444;
+        --warning: #F59E0B;
+        --bg-dark: #0F172A;
+        --bg-light: #F8FAFC;
+        --card-bg: #FFFFFF;
+        --text-primary: #0F172A;
+        --text-secondary: #64748B;
+        --border: #E2E8F0;
+    }
+    
+    * { font-family: 'Inter', sans-serif; }
+    
+    .main { background: var(--bg-light); }
+    
+    /* Header styling */
+    .header-container {
+        background: linear-gradient(135deg, var(--primary) 0%, #1a365d 100%);
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        color: white;
+    }
+    
+    .header-title { font-size: 2rem; font-weight: 800; margin: 0; }
+    .header-subtitle { opacity: 0.8; font-size: 1rem; margin-top: 0.5rem; }
+    
+    /* KPI Cards */
+    .kpi-card {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-left: 5px solid var(--primary);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .kpi-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .kpi-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        line-height: 1.2;
+    }
+    
+    .kpi-delta {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .kpi-delta.positive { color: var(--secondary); }
+    .kpi-delta.negative { color: var(--danger); }
+    
+    /* Status badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.safe { background: #D1FAE5; color: #065F46; }
+    .status-badge.warning { background: #FEF3C7; color: #92400E; }
+    .status-badge.danger { background: #FEE2E2; color: #991B1B; }
+    
+    /* Section headers */
+    .section-header {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--primary);
+    }
+    
+    /* Info cards */
+    .info-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] { 
+        background: linear-gradient(180deg, var(--bg-dark) 0%, #1e293b 100%) !important; 
+    }
+    
+    section[data-testid="stSidebar"] * { color: white !important; }
+    
+    .sidebar-section {
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .sidebar-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #94A3B8;
+        margin-bottom: 0.75rem;
+    }
+    
+    /* Custom metric styling */
+    div[data-testid="stMetric"] {
+        background: var(--card-bg);
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+    }
+    
+    /* Tab styling */
+    .stTabs button {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    /* Chart container */
+    .chart-container {
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+    }
+    
+    /* Progress bar */
+    .progress-container {
+        background: #E2E8F0;
+        border-radius: 9999px;
+        height: 8px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.5s ease;
+    }
+    
+    /* Alert boxes */
+    .alert-box {
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .alert-box.success { background: #D1FAE5; border-left: 4px solid #10B981; }
+    .alert-box.warning { background: #FEF3C7; border-left: 4px solid #F59E0B; }
+    .alert-box.danger { background: #FEE2E2; border-left: 4px solid #EF4444; }
+    .alert-box.info { background: #DBEAFE; border-left: 4px solid #3B82F6; }
+    
+    /* Table styling */
+    .styled-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .styled-table th {
+        background: var(--primary);
+        color: white;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .styled-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.9rem;
+    }
+    
+    .styled-table tr:hover { background: #F1F5F9; }
+    
+    /* Hide streamlit default elements */
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    
+    /* Responsive containers */
+    @media (max-width: 768px) {
+        .kpi-card { margin-bottom: 1rem; }
+        .header-title { font-size: 1.5rem; }
+    }
+</style>
+""", unsafe_allow_html=True)
 
-RATIO_KEYS = {"cet1_ratio", "total_car", "gross_npa_ratio", "net_npa_ratio"}
-
-# NRB reference minimums (Basel III + NRB buffers)
-NRB_CET1_MIN  = 8.0
-NRB_TOTAL_MIN = 11.0
-
-# ================================================================
-# 2. CUSTOM CSS
-# ================================================================
-def inject_css():
-    st.markdown(f"""<style>
-    /* ── Global ────────────────────────────────────── */
-    .stApp {{ background-color: {C["bg"]}; color: {C["text"]}; }}
-    [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, {C["card"]} 0%, #0D1321 100%);
-        border-right: 1px solid {C["border"]};
-    }}
-    [data-testid="stSidebar"] * {{ color: {C["muted"]} !important; }}
-    [data-testid="stSidebar"] .stMarkdown h1,
-    [data-testid="stSidebar"] .stMarkdown h2,
-    [data-testid="stSidebar"] .stMarkdown h3 {{ color: {C["text"]} !important; }}
-
-    /* ── Tabs ─────────────────────────────────────── */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 4px; background: transparent; border-bottom: 1px solid {C["border"]};
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        border-radius: 8px 8px 0 0; padding: 10px 20px;
-        background: transparent; color: {C["muted"]};
-        font-size: 13px; font-weight: 500;
-        transition: all .2s;
-    }}
-    .stTabs [aria-selected="true"] {{
-        background: {C["card2"]}; color: {C["green"]};
-        border-bottom: 2px solid {C["green"]};
-    }}
-    .stTabs [data-baseweb="tab-highlight"] {{
-        background-color: {C["green"]} !important; height: 2px !important;
-    }}
-    .stTabs [data-baseweb="tab-panel"] {{ background: transparent; padding-top: 20px; }}
-
-    /* ── Metrics ──────────────────────────────────── */
-    [data-testid="stMetricValue"] {{
-        font-size: 26px !important; font-weight: 700 !important;
-        font-family: 'Segoe UI', system-ui, sans-serif !important;
-        letter-spacing: -0.5px;
-    }}
-    [data-testid="stMetricLabel"] {{
-        font-size: 12px !important; color: {C["muted"]} !important;
-        text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
-    }}
-    [data-testid="stMetricDelta"] {{ font-size: 13px !important; }}
-
-    /* ── Dataframe ────────────────────────────────── */
-    .stDataFrame {{
-        border: 1px solid {C["border"]}; border-radius: 12px;
-        background: {C["card"]}; overflow: hidden;
-    }}
-    .stDataFrame thead th {{
-        background: {C["card2"]}; color: {C["muted"]};
-        font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;
-        border-bottom: 1px solid {C["border"]}; padding: 12px 16px;
-    }}
-    .stDataFrame td {{
-        color: {C["text"]}; font-size: 13px; padding: 10px 16px;
-        border-bottom: 1px solid rgba(30,45,74,0.4);
-    }}
-    .stDataFrame tr:hover td {{ background: rgba(255,255,255,0.02); }}
-
-    /* ── KPI Card Grid ────────────────────────────── */
-    .kpi-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 16px; }}
-    .kpi-card {{
-        background: {C["card"]}; border: 1px solid {C["border"]};
-        border-radius: 14px; padding: 20px; position: relative; overflow: hidden;
-        transition: transform .2s, box-shadow .2s;
-    }}
-    .kpi-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-        border-color: {C["border"]};
-    }}
-    .kpi-card .kpi-glow {{
-        position: absolute; top: -30px; right: -30px;
-        width: 100px; height: 100px; border-radius: 50%;
-        filter: blur(50px); opacity: 0.1; pointer-events: none;
-    }}
-    .kpi-card .kpi-icon {{
-        width: 38px; height: 38px; border-radius: 10px;
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 16px; margin-bottom: 14px;
-    }}
-    .kpi-card .kpi-label {{
-        font-size: 11px; color: {C["muted"]}; text-transform: uppercase;
-        letter-spacing: 0.8px; font-weight: 600; margin-bottom: 6px;
-    }}
-    .kpi-card .kpi-val {{
-        font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
-        font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.1;
-    }}
-    .kpi-card .kpi-sub {{
-        font-size: 11px; margin-top: 6px; font-weight: 600;
-    }}
-    .kpi-card .kpi-bar {{
-        height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06);
-        margin-top: 12px; overflow: hidden;
-    }}
-    .kpi-card .kpi-bar-fill {{
-        height: 100%; border-radius: 2px; transition: width .8s ease;
-    }}
-
-    /* ── Status Banner ────────────────────────────── */
-    .status-banner {{
-        padding: 12px 18px; border-radius: 10px;
-        display: flex; align-items: center; gap: 10px;
-        font-size: 13px; font-weight: 500; margin-bottom: 24px;
-    }}
-    .status-dot {{
-        width: 8px; height: 8px; border-radius: 50%; position: relative;
-    }}
-    .status-dot::after {{
-        content: ''; position: absolute; inset: -4px; border-radius: 50%;
-        border: 1.5px solid currentColor; opacity: 0;
-        animation: ping 2s cubic-bezier(0,0,0.2,1) infinite;
-    }}
-    @keyframes ping {{
-        0% {{ transform: scale(1); opacity: .5; }}
-        100% {{ transform: scale(2); opacity: 0; }}
-    }}
-
-    /* ── Section Header ───────────────────────────── */
-    .section-head {{
-        font-size: 15px; font-weight: 700; color: {C["text"]};
-        margin-bottom: 16px; padding-left: 12px;
-        border-left: 3px solid {C["green"]};
-    }}
-
-    /* ── Scrollbar ────────────────────────────────── */
-    ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-    ::-webkit-scrollbar-track {{ background: transparent; }}
-    ::-webkit-scrollbar-thumb {{ background: {C["border"]}; border-radius: 3px; }}
-
-    /* ── Hide default Streamlit elements ──────────── */
-    #MainMenu {{ visibility: hidden; }}
-    footer {{ visibility: hidden; }}
-    header[data-testid="stHeader"] {{
-        background: rgba(11,15,25,0.8) !important;
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid {C["border"]};
-    }}
-    </style>""", unsafe_allow_html=True)
-
-
-# ================================================================
-# 3. DATA LOADING & PARSING
-# ================================================================
-def parse_rs(val):
-    """Convert Rs column to float. Handles '-', '(neg)', '15.46%', commas."""
-    if pd.isna(val) or str(val).strip() in ("-", "", "nan"):
-        return np.nan
-    s = str(val).strip()
-    if s.startswith("(") and s.endswith(")"):
-        s = "-" + s[1:-1]
-    if "%" in s:
-        return float(s.replace("%", ""))
-    s = s.replace(",", "")
+# ---------------------- Data Loading ----------------------
+@st.cache_data(ttl=3600)
+def load_data():
+    url = "https://github.com/sudbrl/baselreport/raw/main/baseldata.xlsx"
     try:
-        return float(s)
-    except ValueError:
-        return np.nan
-
-
-# Metric definitions: key → list of possible Particulars names
-METRIC_MAP = {
-    "paid_up_capital":       ["Paid Up Equity Share Capital"],
-    "share_premium":         ["Share Premium"],
-    "statutory_reserves":    ["Statutory General Reserves"],
-    "retained_earnings":     ["Retained Earnings"],
-    "cumulative_profit":     ["Un-Audited Current Year Cumulative Profit"],
-    "cap_adj_reserve":       ["Capital Adjustment Reserve"],
-    "core_capital":          ["Core Capital (Tier 1)"],
-    "gen_llp":               ["General Loan Loss Provision"],
-    "exch_reserves":         ["Exchange Equalization Reserves"],
-    "inv_adj_reserve":       ["Investment Adjustment Reserve"],
-    "sub_debt":              ["Subordinated Term Debt"],
-    "tier2_capital":         [
-        "Supplementary Capital (Tier 2)",
-        "Eligible Supplementary Capital (Tier 2)",
-    ],
-    "total_capital_fund":    ["Total Qualifying Capital (Total Capital Fund)"],
-    "cet1_ratio":            ["Capital Adequacy Ratio \u2013 Core Capital"],
-    "total_car":             ["Capital Adequacy Ratio \u2013 Total Capital Fund"],
-    "rwe_credit":            ["Risk Weighted Exposure For Credit Risk"],
-    "rwe_operational":       ["Risk Weighted Exposure For Operational Risk"],
-    "rwe_market":            ["Risk Weighted Exposure For Market Risk"],
-    "pillar2_adj":           ["Adjustments Under Pillar Ii"],
-    "rwe_cap_charge":        [
-        "Add Rwe Equvalent To Reciprocal Of Capital Charge Of 3 % Of Gross Income.",
-        "Add Rwe Equvalent To Reciprocal Of Capital Charge",
-        "Add Rwe Equivalent To Reciprocal Of Capital Charge",
-    ],
-    "risk_mgmt_adj":         [
-        "Overall Risk Management Policies And Precedures Are Not Satisfactory"
-    ],
-    "nla_shortfall":         ["Net Liquid Assets To Total Deposit Ratio Is Shortfall"],
-    "rwe_total":             [
-        "Total Risk Weighted Exposures (A+B+C+D)",
-        "Total Risk Weighted Exposures (A+B+C)",
-    ],
-    # Credit portfolio
-    "cl_govt":               ["Claims On Government And Central Bank"],
-    "cl_banks":              ["Claims On Banks"],
-    "cl_corporate":          ["Claims On Corporate And Securities Firm"],
-    "cl_retail":             ["Claims On Regulatory Retail Portfolio"],
-    "cl_residential":        ["Claim Secured By Residential Properties"],
-    "cl_commercial_re":      ["Claims Secured By Commercial Real State"],
-    "cl_past_due":           ["Past Due Claims"],
-    "cl_high_risk":          ["High Risk Claims"],
-    "cl_securities":         ["Lending Against Securities (Bonds & Shares)"],
-    "cl_other":              ["Other Assets"],
-    "cl_obs":                ["Off Balance Sheet Items"],
-    # NPA
-    "restructure":           ["Restructure Loan/Reschedule Loan"],
-    "substandard":           ["Substandard Loan"],
-    "doubtful":              ["Doubtful Loan"],
-    "loss_loan":             ["Loss Loan"],
-    "gross_npa_ratio":       ["Gross Npa To Gross Advances"],
-    "net_npa_ratio":         ["Net Npa To Net Advances"],
-    "llp_total":             ["Loan Loss Provision"],
-    "interest_suspense":     ["Interest Suspense"],
-    # Investment
-    "held_trading":          ["Held For Trading"],
-    "held_maturity":         ["Held To Maturity"],
-    "avail_sale":            ["Available For Sale"],
-    "total_investment":      ["Total Investment"],
-}
-
-
-@st.cache_data(show_spinner="Parsing Basel data...")
-def load_data(uploaded):
-    df = pd.read_excel(uploaded, sheet_name="Data")
-    # Drop #REF! helper rows
-    df = df[df["Helper"].astype(str) != "#REF!"].copy()
-    df["Rs_parsed"] = df["Rs"].apply(parse_rs)
-    df["Particulars"] = df["Particulars"].str.strip()
-
-    periods = df["Month"].dropna().unique().tolist()
-    rows = []
-    for period in periods:
-        sub = df[df["Month"] == period]
-        row = {"Period": period}
-        for key, names in METRIC_MAP.items():
-            for name in names:
-                hit = sub[sub["Particulars"] == name]
-                if len(hit) > 0:
-                    row[key] = hit.iloc[0]["Rs_parsed"]
-                    break
-            if key not in row:
-                row[key] = np.nan
-        rows.append(row)
-
-    mdf = pd.DataFrame(rows)
-    return mdf, df
-
-
-# ================================================================
-# 4. FORMATTING HELPERS
-# ================================================================
-def fmt_mn(v, d=1):
-    if pd.isna(v): return "—"
-    return f"NPR {v/1e3:,.{d}f} Mn"
-
-def fmt_bn(v, d=2):
-    if pd.isna(v): return "—"
-    return f"NPR {v/1e6:,.{d}f} Bn"
-
-def fmt_pct(v, d=2):
-    if pd.isna(v): return "—"
-    return f"{v:.{d}f}%"
-
-def fmt_num(v, d=0):
-    if pd.isna(v): return "—"
-    return f"{v:,.{d}f}"
-
-def delta_bps(curr, prev):
-    if pd.isna(curr) or pd.isna(prev): return None
-    return round((curr - prev) * 100)
-
-
-def kpi_card_html(label, value, color, icon, sub="", bar_pct=0, bar_color=None):
-    bc = bar_color or color
-    return f"""<div class="kpi-card">
-        <div class="kpi-glow" style="background:{color}"></div>
-        <div class="kpi-icon" style="background:{color}18;color:{color}">{icon}</div>
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-val" style="color:{color}">{value}</div>
-        {"<div class='kpi-sub'>"+sub+"</div>" if sub else ""}
-        {"<div class='kpi-bar'><div class='kpi-bar-fill' style='width:"+str(bar_pct)+"%;background:"+bc+"'></div></div>" if bar_pct else ""}
-    </div>"""
-
-
-# ================================================================
-# 5. PLOTLY CHART HELPERS
-# ================================================================
-PLOTLY_KW = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="sans-serif", color=C["muted"], size=11),
-    margin=dict(t=36, b=48, l=56, r=16),
-)
-AXIS_KW = dict(
-    gridcolor="rgba(30,45,74,0.45)",
-    zerolinecolor="rgba(30,45,74,0.45)",
-    showline=False,
-)
-LEGEND_KW = dict(
-    orientation="h", yanchor="bottom", y=1.06, xanchor="right", x=1,
-    font=dict(size=11, color=C["muted"]),
-)
-
-
-def _line_trace(x, y, name, color, dash=None, width=2.5, fill=False):
-    kw = dict(x=x, y=y, name=name, line=dict(color=color, width=width, dash=dash))
-    if fill:
-        kw["fill"] = "tozeroy"
-        kw["fillcolor"] = color.replace(")", ",0.08)").replace("rgb", "rgba")
-    return go.Scatter(**kw)
-
-
-def _bar_trace(x, y, name, color, text=None):
-    return go.Bar(x=x, y=y, name=name, marker_color=color,
-                  text=text, textposition="outside",
-                  textfont=dict(size=10, color=C["muted"]),
-                  marker_line_width=0, hovertemplate="%{x}<br>%{y:,.0f}<extra></extra>")
-
-
-# ================================================================
-# 6. CHART BUILDERS
-# ================================================================
-
-def chart_car_trend(mdf):
-    """Capital Adequacy Ratio trend with NRB minimums."""
-    fig = go.Figure()
-    x = mdf["Period"]
-    fig.add_trace(_line_trace(x, mdf["cet1_ratio"], "CET1 Ratio", C["green"], fill=True))
-    fig.add_trace(_line_trace(x, mdf["total_car"],    "Total CAR",   C["cyan"],  fill=True))
-    fig.add_trace(_line_trace(x, [NRB_CET1_MIN]*len(x),  "NRB CET1 Min (8%)",   C["red"],  dash="dash", width=1.2))
-    fig.add_trace(_line_trace(x, [NRB_TOTAL_MIN]*len(x), "NRB Total Min (11%)", C["red"],  dash="dot",  width=1.2))
-    fig.update_layout(
-        **PLOTLY_KW, legend=LEGEND_KW,
-        yaxis=dict(**AXIS_KW, ticksuffix="%", title="Ratio (%)"),
-        xaxis=dict(**AXIS_KW, title=""),
-        hovermode="x unified",
-    )
-    return fig
-
-
-def chart_rwe_stacked(mdf):
-    """RWE breakdown stacked bar over time."""
-    comps = [
-        ("rwe_credit",      "Credit Risk",      C["green"]),
-        ("rwe_operational",  "Operational Risk", C["cyan"]),
-        ("rwe_market",       "Market Risk",      C["amber"]),
-        ("pillar2_adj",      "Pillar II Adj.",   C["purple"]),
-        ("rwe_cap_charge",   "Capital Charge",   C["pink"]),
-        ("risk_mgmt_adj",    "Risk Mgmt Adj.",   C["blue"]),
-        ("nla_shortfall",    "NLA Shortfall",    C["red"]),
-    ]
-    fig = go.Figure()
-    for key, name, color in comps:
-        vals = mdf[key].fillna(0)
-        if vals.abs().sum() > 0:
-            fig.add_trace(go.Bar(
-                x=mdf["Period"], y=vals, name=name,
-                marker_color=color, marker_line_width=0,
-                hovertemplate=f"{name}<br>%{{y:,.0f}}<extra></extra>"
-            ))
-    fig.update_layout(
-        **PLOTLY_KW, legend=LEGEND_KW, barmode="stack",
-        yaxis=dict(**AXIS_KW, title="RWE (NPR '000)"),
-        xaxis=dict(**AXIS_KW, title=""),
-        hovermode="x unified",
-    )
-    return fig
-
-
-def chart_capital_composition(mdf):
-    """Stacked bar: Tier 1 components + Tier 2 components over time."""
-    fig = go.Figure()
-    t1_parts = [
-        ("paid_up_capital",    "Paid Up Capital",  C["green"]),
-        ("share_premium",      "Share Premium",    C["cyan"]),
-        ("statutory_reserves", "Statutory Reserves", C["blue"]),
-        ("retained_earnings",  "Retained Earnings",  C["amber"]),
-        ("cumulative_profit",  "Cumulative Profit",  C["purple"]),
-        ("cap_adj_reserve",    "Cap. Adj. Reserve",  C["pink"]),
-    ]
-    t2_parts = [
-        ("gen_llp",        "Gen. LLP",       C["cyan"]),
-        ("exch_reserves",  "Exch. Reserves", C["amber"]),
-        ("inv_adj_reserve","Inv. Adj. Res.", C["green"]),
-        ("sub_debt",       "Sub. Debt",      C["blue"]),
-    ]
-    for key, name, color in t1_parts:
-        vals = mdf[key].fillna(0)
-        if vals.abs().sum() > 0:
-            fig.add_trace(go.Bar(x=mdf["Period"], y=vals, name=f"T1: {name}",
-                                 marker_color=color, marker_line_width=0))
-    for key, name, color in t2_parts:
-        vals = mdf[key].fillna(0)
-        if vals.abs().sum() > 0:
-            fig.add_trace(go.Bar(x=mdf["Period"], y=vals, name=f"T2: {name}",
-                                 marker_color=color, marker_line_width=0,
-                                 marker_pattern_shape="/"))
-    fig.update_layout(
-        **PLOTLY_KW, legend=LEGEND_KW, barmode="stack",
-        yaxis=dict(**AXIS_KW, title="Capital (NPR '000)"),
-        xaxis=dict(**AXIS_KW, title=""),
-        hovermode="x unified",
-    )
-    return fig
-
-
-def chart_capital_donut(row):
-    """Donut chart for selected period's capital breakdown."""
-    t1 = row.get("core_capital", np.nan)
-    t2 = row.get("tier2_capital", np.nan)
-    if pd.isna(t1): t1 = 0
-    if pd.isna(t2): t2 = 0
-    total = t1 + t2
-    if total == 0: total = 1
-
-    fig = go.Figure(go.Pie(
-        values=[t1, t2],
-        labels=["Tier 1 Capital", "Tier 2 Capital"],
-        marker_colors=[C["green"], C["cyan"]],
-        hole=0.72,
-        textinfo="percent",
-        textfont=dict(size=13, color=C["text"]),
-        hovertemplate="<b>%{label}</b><br>NPR %{value:,.0f} ('000)<extra></extra>",
-    ))
-    fig.update_layout(**PLOTLY_KW, margin=dict(t=10, b=10, l=10, r=10),
-                      showlegend=True,
-                      legend=dict(orientation="h", y=-0.05, font=dict(size=12, color=C["muted"])))
-    return fig
-
-
-def chart_credit_portfolio(row):
-    """Horizontal bar of credit RWA by portfolio for one period."""
-    items = [
-        ("cl_retail",        "Regulatory Retail"),
-        ("cl_corporate",     "Corporate & Securities"),
-        ("cl_banks",         "Banks"),
-        ("cl_residential",   "Residential Mortgage"),
-        ("cl_high_risk",     "High Risk Claims"),
-        ("cl_securities",    "Lending vs Securities"),
-        ("cl_other",         "Other Assets"),
-        ("cl_obs",           "Off-Balance Sheet"),
-        ("cl_past_due",      "Past Due Claims"),
-        ("cl_commercial_re", "Commercial Real Estate"),
-        ("cl_govt",          "Government & Central Bank"),
-    ]
-    labels, vals, colors = [], [], []
-    for key, name in items:
-        v = row.get(key, np.nan)
-        if pd.notna(v) and v != 0:
-            labels.append(name)
-            vals.append(v)
-    # Color by magnitude
-    mx = max(vals) if vals else 1
-    color_seq = [C["green"], C["cyan"], C["blue"], C["amber"], C["purple"], C["pink"], C["red"]]
-    colors = [color_seq[min(int(v/mx*5), len(color_seq)-1)] for v in vals]
-
-    fig = go.Figure(go.Bar(
-        x=vals, y=labels, orientation="h",
-        marker_color=colors, marker_line_width=0,
-        hovertemplate="<b>%{y}</b><br>NPR %{x:,.0f} ('000)<extra></extra>",
-    ))
-    fig.update_layout(
-        **PLOTLY_KW, margin=dict(t=10, b=20, l=180, r=40),
-        xaxis=dict(**AXIS_KW, title="RWE (NPR '000)"),
-        yaxis=dict(**AXIS_KW, title="", autorange="reversed"),
-        showlegend=False, height=max(320, len(labels)*36),
-    )
-    return fig
-
-
-def chart_npa_stacked(mdf):
-    """Stacked bar: NPA classification over time."""
-    cats = [
-        ("restructure",  "Restructured",  C["blue"]),
-        ("substandard",  "Substandard",   C["amber"]),
-        ("doubtful",     "Doubtful",      C["red"]),
-        ("loss_loan",    "Loss",          C["pink"]),
-    ]
-    fig = go.Figure()
-    for key, name, color in cats:
-        vals = mdf[key].fillna(0)
-        if vals.abs().sum() > 0:
-            fig.add_trace(go.Bar(
-                x=mdf["Period"], y=vals, name=name,
-                marker_color=color, marker_line_width=0,
-                hovertemplate=f"{name}<br>%{{y:,.0f}} ('000)<extra></extra>"
-            ))
-    fig.update_layout(
-        **PLOTLY_KW, legend=LEGEND_KW, barmode="stack",
-        yaxis=dict(**AXIS_KW, title="NPA (NPR '000)"),
-        xaxis=dict(**AXIS_KW, title=""),
-        hovermode="x unified",
-    )
-    return fig
-
-
-def chart_npa_ratios(mdf):
-    """Dual-line: Gross NPA and Net NPA ratios."""
-    fig = go.Figure()
-    fig.add_trace(_line_trace(mdf["Period"], mdf["gross_npa_ratio"],
-                              "Gross NPA Ratio", C["red"], width=2.5))
-    fig.add_trace(_line_trace(mdf["Period"], mdf["net_npa_ratio"],
-                              "Net NPA Ratio", C["amber"], width=2.5))
-    fig.update_layout(
-        **PLOTLY_KW, legend=LEGEND_KW, hovermode="x unified",
-        yaxis=dict(**AXIS_KW, ticksuffix="%", title="NPA Ratio (%)"),
-        xaxis=dict(**AXIS_KW, title=""),
-    )
-    return fig
-
-
-def chart_rwe_donut(row):
-    """Donut of RWE components for selected period."""
-    comps = [
-        ("rwe_credit",     "Credit Risk",     C["green"]),
-        ("rwe_operational", "Operational Risk", C["cyan"]),
-        ("rwe_market",      "Market Risk",      C["amber"]),
-        ("pillar2_adj",     "Pillar II",        C["purple"]),
-        ("rwe_cap_charge",  "Capital Charge",   C["pink"]),
-        ("risk_mgmt_adj",   "Risk Mgmt",        C["blue"]),
-        ("nla_shortfall",   "NLA Shortfall",    C["red"]),
-    ]
-    labels, vals, colors = [], [], []
-    for key, name, color in comps:
-        v = row.get(key, np.nan)
-        if pd.notna(v) and v != 0:
-            labels.append(name)
-            vals.append(v)
-            colors.append(color)
-    if not vals:
-        return go.Figure()
-    fig = go.Figure(go.Pie(
-        values=vals, labels=labels, marker_colors=colors,
-        hole=0.68, textinfo="percent",
-        textfont=dict(size=11, color=C["text"]),
-        hovertemplate="<b>%{label}</b><br>NPR %{value:,.0f} ('000)<extra></extra>",
-    ))
-    fig.update_layout(**PLOTLY_KW, margin=dict(t=10, b=10, l=10, r=10),
-                      showlegend=True,
-                      legend=dict(orientation="h", y=-0.08, font=dict(size=10, color=C["muted"])))
-    return fig
-
-
-def chart_investment_trend(mdf):
-    """Stacked area: Investment portfolio over time."""
-    cats = [
-        ("held_trading", "Held for Trading",  C["green"]),
-        ("held_maturity", "Held to Maturity",  C["cyan"]),
-        ("avail_sale",   "Available for Sale", C["amber"]),
-    ]
-    fig = go.Figure()
-    for key, name, color in cats:
-        vals = mdf[key].fillna(0)
-        if vals.abs().sum() > 0:
-            fig.add_trace(go.Scatter(
-                x=mdf["Period"], y=vals, name=name,
-                line=dict(color=color, width=1.5),
-                fill="tozeroy",
-                fillcolor=color.replace(")", ",0.12)").replace("#", "rgba(")
-                    if color.startswith("#") else color,
-                stackgroup="one",
-                hovertemplate=f"{name}<br>%{{y:,.0f}} ('000)<extra></extra>",
-            ))
-    fig.update_layout(
-        **PLOTLY_KW, legend=LEGEND_KW, hovermode="x unified",
-        yaxis=dict(**AXIS_KW, title="Investment (NPR '000)"),
-        xaxis=dict(**AXIS_KW, title=""),
-    )
-    return fig
-
-
-# ================================================================
-# 7. MAIN APPLICATION
-# ================================================================
-def main():
-    inject_css()
-
-    # ── Sidebar ──────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown("""
-        <div style="margin-bottom:28px;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-                <div style="width:36px;height:36px;border-radius:10px;
-                     background:linear-gradient(135deg,#10B981,#06B6D4);
-                     display:flex;align-items:center;justify-content:center;">
-                    <span style="font-size:16px;">🏛️</span>
-                </div>
-                <div>
-                    <div style="font-size:15px;font-weight:800;color:#E2E8F0;
-                         letter-spacing:-0.3px;">BaselReport</div>
-                    <div style="font-size:9px;color:#64748B;letter-spacing:1.5px;
-                         text-transform:uppercase;">NRB Compliance Suite</div>
-                </div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.markdown('<div class="section-head">Data Source</div>', unsafe_allow_html=True)
-        uploaded = st.file_uploader(
-            "Upload baseldata.xlsx",
-            type=["xlsx"],
-            label_visibility="collapsed",
-            help="Upload the Basel III data Excel file",
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        xls = pd.ExcelFile(BytesIO(response.content))
+        df = xls.parse("Data")
+        
+        # Normalize column names
+        df.columns = (
+            df.columns.str.strip()
+            .str.replace(r'\s+', ' ', regex=True)
+            .str.replace('\xa0', ' ')
         )
-
-    # ── Load data ────────────────────────────────────────────────
-    if not uploaded:
-        st.markdown("""
-        <div style="display:flex;flex-direction:column;align-items:center;
-                    justify-content:center;height:60vh;gap:20px;">
-            <div style="width:80px;height:80px;border-radius:20px;
-                 background:linear-gradient(135deg,#10B98118,#06B6D418);
-                 border:1px solid #1E2D4A;display:flex;align-items:center;
-                 justify-content:center;font-size:32px;">📊</div>
-            <div style="font-size:20px;font-weight:700;color:#E2E8F0;">
-                Upload Basel Data</div>
-            <div style="font-size:14px;color:#64748B;max-width:400px;text-align:center;">
-                Select the <b>baseldata.xlsx</b> file from the sidebar to
-                load your regulatory reporting data.
-            </div>
-        </div>""", unsafe_allow_html=True)
-        return
-
-    try:
-        mdf, raw_df = load_data(uploaded)
+        
+        # Drop unnamed/helper columns
+        drop_cols = [c for c in df.columns if c.startswith("Unnamed") 
+                     or c in ("Helper", "Rs.1", "Rs.2", "Movements(%)")]
+        df.drop(columns=drop_cols, errors="ignore", inplace=True)
+        
+        # Normalize text columns
+        df["Month"]       = df["Month"].astype(str).str.strip()
+        df["Particulars"] = df["Particulars"].astype(str).str.strip()
+        
+        return df
     except Exception as e:
-        st.error(f"Failed to parse Excel file: {e}")
-        return
+        return None
 
-    if mdf.empty:
-        st.warning("No valid data found in the file.")
-        return
+df = load_data()
 
-    n_periods = len(mdf)
+if df is None:
+    st.error("⚠️ Failed to load data. Please check your connection and try again.")
+    st.stop()
 
-    # ── Sidebar controls ─────────────────────────────────────────
-    with st.sidebar:
-        st.markdown("---")
-        st.markdown('<div class="section-head">Period Filter</div>', unsafe_allow_html=True)
-        sel_idx = st.selectbox(
-            "Reporting Period",
-            range(n_periods),
-            format_func=lambda i: mdf.iloc[i]["Period"],
-            index=n_periods - 1,
-            label_visibility="collapsed",
-        )
-        sel_row = mdf.iloc[sel_idx]
-        prev_row = mdf.iloc[sel_idx - 1] if sel_idx > 0 else None
+# ---------------------- Row-based Lookup Utility ----------------------
+def find_particular(df: pd.DataFrame, keywords: list[str]) -> str | None:
+    for val in df["Particulars"].dropna().unique():
+        val_lower = str(val).lower()
+        if all(kw.lower() in val_lower for kw in keywords):
+            return val
+    return None
 
-        st.markdown("---")
-        st.markdown('<div class="section-head">Quick Stats</div>', unsafe_allow_html=True)
-        st.caption(f"Total periods: **{n_periods}**")
-        st.caption(f"Date range: **{mdf.iloc[0]['Period']}** → **{mdf.iloc[-1]['Period']}**")
-        st.caption(f"Data points parsed: **{len(METRIC_MAP)}** metrics × {n_periods} periods")
+# Auto-detect row labels
+LABEL_GROSS_NPA  = find_particular(df, ["gross", "npa"])
+LABEL_NET_NPA    = find_particular(df, ["net",   "npa"])
+LABEL_CORE_CAP   = find_particular(df, ["core",  "capital"])
+LABEL_TOTAL_CAP  = find_particular(df, ["total", "capital"])
 
-    # ── Computed values ──────────────────────────────────────────
-    cet1   = sel_row.get("cet1_ratio", np.nan)
-    tcar   = sel_row.get("total_car", np.nan)
-    rwe    = sel_row.get("rwe_total", np.nan)
-    gnpa   = sel_row.get("gross_npa_ratio", np.nan)
-    nnpa   = sel_row.get("net_npa_ratio", np.nan)
-    tcap   = sel_row.get("total_capital_fund", np.nan)
-    core   = sel_row.get("core_capital", np.nan)
-    tier2  = sel_row.get("tier2_capital", np.nan)
+labels_check = {
+    "Gross NPA":     LABEL_GROSS_NPA,
+    "Net NPA":       LABEL_NET_NPA,
+    "Core Capital":  LABEL_CORE_CAP,
+    "Total Capital": LABEL_TOTAL_CAP,
+}
 
-    cet1_d  = delta_bps(sel_row.get("cet1_ratio"), prev_row.get("cet1_ratio") if prev_row is not None else None)
-    tcar_d  = delta_bps(sel_row.get("total_car"), prev_row.get("total_car") if prev_row is not None else None)
-    gnpa_d  = delta_bps(sel_row.get("gross_npa_ratio"), prev_row.get("gross_npa_ratio") if prev_row is not None else None)
+unresolved = [k for k, v in labels_check.items() if v is None]
+if unresolved:
+    st.error(f"⚠️ Could not find row labels for: **{', '.join(unresolved)}**")
+    st.stop()
 
-    cet1_ok = not pd.isna(cet1) and cet1 >= NRB_CET1_MIN
-    tcar_ok = not pd.isna(tcar) and tcar >= NRB_TOTAL_MIN
+# ---------------------- Helper Functions ----------------------
+def get_value(particular_label: str, month: str) -> float:
+    mask = (df["Particulars"] == particular_label) & (df["Month"] == month)
+    result = df.loc[mask, "Rs"]
+    return float(result.iloc[0]) if not result.empty else 0.0
 
-    # ── Header Banner ────────────────────────────────────────────
-    if cet1_ok and tcar_ok:
-        banner_color = f"{C['green']}18"
-        banner_border = f"{C['green']}30"
-        banner_text = C["green"]
-        banner_msg = "All capital ratios above NRB minimum requirements"
-        banner_icon = "✓"
+def get_series(particular_label: str) -> pd.DataFrame:
+    return (
+        df[df["Particulars"] == particular_label][["Month", "Rs"]]
+        .copy()
+        .reset_index(drop=True)
+    )
+
+def get_prev_month(month: str) -> str:
+    months = df["Month"].dropna().unique().tolist()
+    idx = months.index(month) if month in months else 0
+    return months[max(0, idx - 1)]
+
+def format_value(val: float) -> str:
+    """Format value as percentage or number based on magnitude"""
+    if abs(val) < 2:  # Likely a ratio
+        return f"{val:.2%}"
+    return f"{val:,.2f}"
+
+def get_status(val: float, threshold: float, lower_better: bool = True) -> str:
+    """Determine status based on threshold"""
+    if lower_better:
+        if val <= threshold: return "safe"
+        elif val <= threshold * 1.2: return "warning"
+        return "danger"
     else:
-        banner_color = f"{C['red']}18"
-        banner_border = f"{C['red']}30"
-        banner_text = C["red"]
-        banner_msg = "Capital ratios below NRB minimum — action required"
-        banner_icon = "⚠"
+        if val >= threshold: return "safe"
+        elif val >= threshold * 0.8: return "warning"
+        return "danger"
 
-    st.markdown(f"""
-    <div class="status-banner" style="background:{banner_color};
-         border:1px solid {banner_border};color:{banner_text};">
-        <div class="status-dot" style="background:{banner_text};color:{banner_text};"></div>
-        <span>{banner_msg}</span>
-        <span style="margin-left:auto;font-size:11px;color:{C['muted']};">
-            {sel_row['Period']} | {n_periods} periods loaded
-        </span>
-    </div>""", unsafe_allow_html=True)
-
-    # ── KPI Cards ────────────────────────────────────────────────
-    def d_str(d):
-        if d is None: return ""
-        sign = "▲" if d >= 0 else "▼"
-        col = C["green"] if d >= 0 else C["red"]
-        return f'<span style="color:{col}">{sign} {abs(d)} bps</span>'
-
-    kpi_html = f"""<div class="kpi-grid">
-    {kpi_card_html("CET1 Ratio", fmt_pct(cet1), C["green"], "🛡️",
-                   d_str(cet1_d),
-                   min(cet1/20*100, 100) if not pd.isna(cet1) else 0)}
-    {kpi_card_html("Total CAR", fmt_pct(tcar), C["cyan"], "🏦",
-                   d_str(tcar_d),
-                   min(tcar/20*100, 100) if not pd.isna(tcar) else 0)}
-    {kpi_card_html("Total RWE", fmt_bn(rwe), C["amber"], "📊",
-                   fmt_mn(rwe) if not pd.isna(rwe) else "",
-                   80)}
-    {kpi_card_html("Gross NPA", fmt_pct(gnpa), C["red"], "⚠️",
-                   d_str(gnpa_d),
-                   min(gnpa/5*100, 100) if not pd.isna(gnpa) else 0)}
-    {kpi_card_html("Net NPA", fmt_pct(nnpa), C["purple"], "📉",
-                   "", 60, C["purple"])}
-    </div>"""
-    st.markdown(kpi_html, unsafe_allow_html=True)
-
-    # ── Tabs ─────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈  Overview", "💰  Capital", "⚡  Risk Analysis",
-        "🔴  Asset Quality", "📋  Data Table"
-    ])
-
-    # ────── TAB 1: OVERVIEW ─────────────────────────────────────
-    with tab1:
-        col_l, col_r = st.columns([3, 2], gap="16px")
-        with col_l:
-            st.markdown('<div class="section-head">Capital Adequacy Trend</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_car_trend(mdf), use_container_width=True)
-        with col_r:
-            st.markdown('<div class="section-head">Capital Structure</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_capital_donut(sel_row), use_container_width=True)
-
-        st.markdown('<div class="section-head">RWE Evolution</div>',
-                    unsafe_allow_html=True)
-        st.plotly_chart(chart_rwe_stacked(mdf), use_container_width=True)
-
-        # Mini metrics row
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            st.metric("Core Capital", fmt_mn(core),
-                      delta=fmt_mn(core - prev_row["core_capital"]) if prev_row is not None and pd.notna(core) and pd.notna(prev_row["core_capital"]) else None,
-                      delta_color="normal")
-        with c2:
-            st.metric("Tier 2 Capital", fmt_mn(tier2),
-                      delta=fmt_mn(tier2 - prev_row["tier2_capital"]) if prev_row is not None and pd.notna(tier2) and pd.notna(prev_row["tier2_capital"]) else None,
-                      delta_color="normal")
-        with c3:
-            st.metric("Total Capital Fund", fmt_mn(tcap),
-                      delta=fmt_mn(tcap - prev_row["total_capital_fund"]) if prev_row is not None and pd.notna(tcap) and pd.notna(prev_row["total_capital_fund"]) else None,
-                      delta_color="normal")
-        with c4:
-            st.metric("Total Investment", fmt_mn(sel_row.get("total_investment")),
-                      delta=fmt_mn(sel_row.get("total_investment", 0) - (prev_row.get("total_investment", 0) if prev_row is not None else 0)),
-                      delta_color="normal")
-
-    # ────── TAB 2: CAPITAL ──────────────────────────────────────
-    with tab2:
-        st.markdown('<div class="section-head">Capital Composition Over Time</div>',
-                    unsafe_allow_html=True)
-        st.plotly_chart(chart_capital_composition(mdf), use_container_width=True)
-
-        col_l, col_r = st.columns(2, gap="16px")
-        with col_l:
-            st.markdown('<div class="section-head">Tier 1 vs Tier 2 Breakdown</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_capital_donut(sel_row), use_container_width=True)
-        with col_r:
-            st.markdown('<div class="section-head">Capital Components Detail</div>',
-                        unsafe_allow_html=True)
-            comp_data = {
-                "Component": [
-                    "Paid Up Capital", "Share Premium", "Statutory Reserves",
-                    "Retained Earnings", "Cumulative Profit", "Cap. Adj. Reserve",
-                    "— Tier 1 Subtotal —", "",
-                    "Gen. Loan Loss Prov.", "Exchange Reserves", "Inv. Adj. Reserve",
-                    "Subordinated Debt",
-                    "— Tier 2 Subtotal —", "",
-                    "Total Capital Fund"
-                ],
-                "Amount (NPR '000)": [
-                    sel_row.get("paid_up_capital"), sel_row.get("share_premium"),
-                    sel_row.get("statutory_reserves"), sel_row.get("retained_earnings"),
-                    sel_row.get("cumulative_profit"), sel_row.get("cap_adj_reserve"),
-                    sel_row.get("core_capital"), None,
-                    sel_row.get("gen_llp"), sel_row.get("exch_reserves"),
-                    sel_row.get("inv_adj_reserve"), sel_row.get("sub_debt"),
-                    sel_row.get("tier2_capital"), None,
-                    sel_row.get("total_capital_fund"),
-                ],
+def draw_gauge(value: float, max_value: float, title: str, threshold: float, 
+               lower_better: bool = True, height: int = 200) -> go.Figure:
+    """Create a gauge chart"""
+    percentage = min(value / max_value * 100, 100) if max_value > 0 else 0
+    
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=value * 100 if value < 1 else value,
+        delta={"reference": threshold * 100 if threshold < 1 else threshold},
+        gauge={
+            "axis": {"range": [0, max_value * 100 if max_value < 1 else max_value * 1.5]},
+            "bar": {"color": "#1E3A8A"},
+            "steps": [
+                {"range": [0, threshold * 0.7], "color": "#FEE2E2"},
+                {"range": [threshold * 0.7, threshold], "color": "#FEF3C7"},
+                {"range": [threshold, max_value], "color": "#D1FAE5"}
+            ],
+            "threshold": {
+                "line": {"color": "#EF4444", "width": 4},
+                "value": threshold
             }
-            cdf = pd.DataFrame(comp_data)
-            st.dataframe(cdf, use_container_width=True, hide_index=True,
-                         column_config={"Amount (NPR '000)": st.column_config.NumberColumn(format="%,.0f")})
+        },
+        number={"suffix": "%" if value < 1 else "", "font": {"size": 24}},
+        title={"text": title, "font": {"size": 14}}
+    ))
+    fig.update_layout(height=height, margin=dict(l=20, r=20, t=50, b=20))
+    return fig
 
-        st.markdown('<div class="section-head">Investment Portfolio Trend</div>',
-                    unsafe_allow_html=True)
-        st.plotly_chart(chart_investment_trend(mdf), use_container_width=True)
+# ---------------------- Sidebar Controls ----------------------
+with st.sidebar:
+    st.markdown("""
+        <div style="text-align: center; padding: 1rem 0;">
+            <h2 style="margin: 0; font-size: 1.5rem;">🏢 Basel Analytics</h2>
+            <p style="opacity: 0.7; margin: 0.5rem 0 0 0;">MIS Dashboard v3.0</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+    
+    # Report Controls
+    st.markdown('<div class="sidebar-title">📊 Report Controls</div>', unsafe_allow_html=True)
+    
+    all_months = df["Month"].dropna().unique().tolist()
+    selected_month = st.selectbox("Reporting Period", options=all_months, index=len(all_months) - 1)
+    prev_month = get_prev_month(selected_month)
+    
+    available_parts = df["Particulars"].dropna().unique().tolist()
+    selected_parts = st.multiselect("Select Metrics", options=available_parts,
+                                     default=available_parts[:3] if len(available_parts) >= 3 else available_parts)
+    
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+    
+    # Analysis Options
+    st.markdown('<div class="sidebar-title">🎛️ Analysis Options</div>', unsafe_allow_html=True)
+    
+    show_table = st.checkbox("Show Data Tables", value=True)
+    show_raw = st.checkbox("Show Raw Data", value=False)
+    comparison_periods = st.slider("Compare Last N Periods", 1, 6, 3)
+    
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+    
+    # Compliance Thresholds
+    st.markdown('<div class="sidebar-title">⚠️ Compliance Thresholds</div>', unsafe_allow_html=True)
+    
+    npa_threshold = st.number_input("NPA Warning (%)", value=5.0, step=0.5) / 100
+    cap_threshold = st.number_input("Capital Floor (%)", value=8.5, step=0.5) / 100
+    
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+    
+    # System Info
+    st.markdown('<div class="sidebar-title">ℹ️ System</div>', unsafe_allow_html=True)
+    st.caption(f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    st.caption(f"Total Records: {len(df):,}")
+    st.caption(f"Periods: {len(all_months)}")
 
-    # ────── TAB 3: RISK ANALYSIS ───────────────────────────────
-    with tab3:
-        col_l, col_r = st.columns([3, 2], gap="16px")
-        with col_l:
-            st.markdown('<div class="section-head">Credit RWA by Portfolio</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_credit_portfolio(sel_row), use_container_width=True)
-        with col_r:
-            st.markdown('<div class="section-head">RWE Composition</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_rwe_donut(sel_row), use_container_width=True)
+# ---------------------- KPI Values ----------------------
+kpi = {
+    "gross_npa_c":  get_value(LABEL_GROSS_NPA,  selected_month),
+    "gross_npa_p":  get_value(LABEL_GROSS_NPA,  prev_month),
+    "net_npa_c":    get_value(LABEL_NET_NPA,     selected_month),
+    "net_npa_p":    get_value(LABEL_NET_NPA,     prev_month),
+    "core_cap_c":   get_value(LABEL_CORE_CAP,    selected_month),
+    "core_cap_p":   get_value(LABEL_CORE_CAP,    prev_month),
+    "total_cap_c":  get_value(LABEL_TOTAL_CAP,   selected_month),
+    "total_cap_p":  get_value(LABEL_TOTAL_CAP,   prev_month),
+}
 
-        st.markdown('<div class="section-head">RWE Components Over Time</div>',
-                    unsafe_allow_html=True)
-        st.plotly_chart(chart_rwe_stacked(mdf), use_container_width=True)
+# ---------------------- Header ----------------------
+st.markdown(f"""
+    <div class="header-container">
+        <h1 class="header-title">📊 Executive MIS Dashboard</h1>
+        <p class="header-subtitle">Financial Risk Intelligence Platform | Basel III Compliance Monitoring</p>
+        <div style="display: flex; gap: 2rem; margin-top: 1rem; font-size: 0.9rem;">
+            <span>📅 Current Period: <strong>{selected_month}</strong></span>
+            <span>📆 Prior Period: <strong>{prev_month}</strong></span>
+            <span>📈 Data Points: <strong>{len(df):,}</strong></span>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-        # RWE detail table for selected period
-        st.markdown('<div class="section-head">RWE Detail — ' + sel_row["Period"] + '</div>',
-                    unsafe_allow_html=True)
-        rwe_detail = {
-            "Component": [
-                "Credit Risk RWE", "Operational Risk RWE", "Market Risk RWE",
-                "Pillar II Adjustments", "Capital Charge RWE",
-                "Risk Mgmt Adjustment", "NLA Shortfall",
-                "Total RWE"
-            ],
-            "Amount (NPR '000)": [
-                sel_row.get("rwe_credit"), sel_row.get("rwe_operational"),
-                sel_row.get("rwe_market"), sel_row.get("pillar2_adj"),
-                sel_row.get("rwe_cap_charge"), sel_row.get("risk_mgmt_adj"),
-                sel_row.get("nla_shortfall"), sel_row.get("rwe_total"),
-            ],
-        }
-        rdf = pd.DataFrame(rwe_detail)
-        st.dataframe(rdf, use_container_width=True, hide_index=True,
-                     column_config={"Amount (NPR '000)": st.column_config.NumberColumn(format="%,.0f")})
+# ---------------------- KPI Cards Row ----------------------
+def create_kpi_card(label, current, prev, lower_better=True, threshold=None):
+    delta = current - prev
+    improving = (delta < 0 and lower_better) or (delta > 0 and not lower_better)
+    
+    color_class = "positive" if improving else "negative"
+    arrow = "↑" if delta > 0 else "↓"
+    
+    status = ""
+    if threshold:
+        status_class = get_status(current, threshold, lower_better)
+        status_text = "✓ Safe" if status_class == "safe" else ("⚠ Warning" if status_class == "warning" else "✗ Alert")
+        status = f'<span class="status-badge {status_class}">{status_text}</span>'
+    
+    return f"""
+    <div class="kpi-card">
+        <div class="kpi-label">{label}</div>
+        <div class="kpi-value">{format_value(current)}</div>
+        <div class="kpi-delta {color_class}">
+            {arrow} {abs(delta)*100:.2f}% vs prior period
+        </div>
+        {status}
+    </div>
+    """
 
-    # ────── TAB 4: ASSET QUALITY ────────────────────────────────
-    with tab4:
-        col_l, col_r = st.columns(2, gap="16px")
-        with col_l:
-            st.markdown('<div class="section-head">NPA Classification Trend</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_npa_stacked(mdf), use_container_width=True)
-        with col_r:
-            st.markdown('<div class="section-head">NPA Ratio Trends</div>',
-                        unsafe_allow_html=True)
-            st.plotly_chart(chart_npa_ratios(mdf), use_container_width=True)
+col1, col2, col3, col4 = st.columns(4)
 
-        # NPA detail
-        st.markdown('<div class="section-head">Asset Quality Detail — ' + sel_row["Period"] + '</div>',
-                    unsafe_allow_html=True)
-        npa_detail = {
-            "Metric": [
-                "Restructured Loans", "Substandard Loans", "Doubtful Loans",
-                "Loss Loans", "Total Classified",
-                "Gross NPA Ratio", "Net NPA Ratio",
-                "Loan Loss Provision", "Interest Suspense",
-            ],
-            "Value": [
-                sel_row.get("restructure"), sel_row.get("substandard"),
-                sel_row.get("doubtful"), sel_row.get("loss_loan"),
-                (sel_row.get("restructure",0) or 0) + (sel_row.get("substandard",0) or 0)
-                + (sel_row.get("doubtful",0) or 0) + (sel_row.get("loss_loan",0) or 0),
-                sel_row.get("gross_npa_ratio"), sel_row.get("net_npa_ratio"),
-                sel_row.get("llp_total"), sel_row.get("interest_suspense"),
-            ],
-            "Unit": ["NPR '000"]*5 + ["%","%"] + ["NPR '000"]*2,
-        }
-        ndf = pd.DataFrame(npa_detail)
-        st.dataframe(ndf, use_container_width=True, hide_index=True)
+with col1:
+    st.markdown(create_kpi_card("Gross NPA", kpi["gross_npa_c"], kpi["gross_npa_p"], 
+                                 lower_better=True, threshold=npa_threshold), unsafe_allow_html=True)
 
-        # Provision coverage ratio
-        total_npa = ((sel_row.get("substandard",0) or 0) +
-                     (sel_row.get("doubtful",0) or 0) +
-                     (sel_row.get("loss_loan",0) or 0))
-        llp = sel_row.get("llp_total", 0) or 0
-        pcr = (llp / total_npa * 100) if total_npa > 0 else 0
+with col2:
+    st.markdown(create_kpi_card("Net NPA", kpi["net_npa_c"], kpi["net_npa_p"], 
+                                 lower_better=True, threshold=npa_threshold), unsafe_allow_html=True)
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("Provision Coverage Ratio", f"{pcr:.1f}%")
-        with c2:
-            st.metric("Total Classified Loans", fmt_mn(total_npa))
-        with c3:
-            st.metric("Interest Suspense", fmt_mn(sel_row.get("interest_suspense")))
+with col3:
+    st.markdown(create_kpi_card("Core Capital", kpi["core_cap_c"], kpi["core_cap_p"], 
+                                 lower_better=False, threshold=5), unsafe_allow_html=True)
 
-    # ────── TAB 5: DATA TABLE ───────────────────────────────────
-    with tab5:
-        st.markdown('<div class="section-head">Parsed Metrics Summary</div>',
-                    unsafe_allow_html=True)
-        st.caption("All extracted Basel III metrics across reporting periods. "
-                   "Values are in NPR '000 unless marked as %.")
+with col4:
+    st.markdown(create_kpi_card("Capital Adequacy", kpi["total_cap_c"], kpi["total_cap_p"], 
+                                 lower_better=False, threshold=cap_threshold), unsafe_allow_html=True)
 
-        # Transpose: metrics as rows, periods as columns
-        display_cols = ["Period"]
-        display_metrics = [
-            ("cet1_ratio",          "CET1 Ratio (%)"),
-            ("total_car",           "Total CAR (%)"),
-            ("core_capital",        "Core Capital"),
-            ("tier2_capital",       "Tier 2 Capital"),
-            ("total_capital_fund",  "Total Capital Fund"),
-            ("rwe_credit",          "RWE - Credit Risk"),
-            ("rwe_operational",     "RWE - Operational Risk"),
-            ("rwe_market",          "RWE - Market Risk"),
-            ("rwe_total",           "Total RWE"),
-            ("gross_npa_ratio",     "Gross NPA Ratio (%)"),
-            ("net_npa_ratio",       "Net NPA Ratio (%)"),
-            ("substandard",         "Substandard Loans"),
-            ("doubtful",            "Doubtful Loans"),
-            ("loss_loan",           "Loss Loans"),
-            ("llp_total",           "Loan Loss Provision"),
-            ("total_investment",    "Total Investment"),
-            ("cl_retail",           "Claims - Retail"),
-            ("cl_corporate",        "Claims - Corporate"),
-            ("cl_banks",            "Claims - Banks"),
-            ("cl_high_risk",        "High Risk Claims"),
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ---------------------- Alert Banner ----------------------
+if kpi["gross_npa_c"] > npa_threshold:
+    st.markdown(f"""
+        <div class="alert-box danger">
+            <span style="font-size: 1.5rem;">🚨</span>
+            <div>
+                <strong>Gross NPA Alert:</strong> Current ratio ({kpi['gross_npa_c']:.2%}) exceeds threshold ({npa_threshold:.1%})
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+elif kpi["gross_npa_c"] > npa_threshold * 0.8:
+    st.markdown(f"""
+        <div class="alert-box warning">
+            <span style="font-size: 1.5rem;">⚠️</span>
+            <div>
+                <strong>NPA Warning:</strong> Gross NPA ({kpi['gross_npa_c']:.2%}) approaching threshold
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+if kpi["total_cap_c"] < cap_threshold:
+    st.markdown(f"""
+        <div class="alert-box danger">
+            <span style="font-size: 1.5rem;">🚨</span>
+            <div>
+                <strong>Capital Alert:</strong> Total Capital ({kpi['total_cap_c']:.2%}) below regulatory floor ({cap_threshold:.1%})
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+elif kpi["total_cap_c"] < cap_threshold * 1.2:
+    st.markdown(f"""
+        <div class="alert-box warning">
+            <span style="font-size: 1.5rem;">⚠️</span>
+            <div>
+                <strong>Capital Buffer Warning:</strong> Adequacy ratio ({kpi['total_cap_c']:.2%}) near regulatory minimum
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------- Main Tabs ----------------------
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📈 Performance Overview",
+    "📉 Asset Quality", 
+    "🛡️ Capital Compliance",
+    "📋 Data Explorer"
+])
+
+# ── Tab 1: Performance Overview ───────────────────────────────────────────────
+with tab1:
+    # Time Series Chart
+    st.markdown('<div class="section-header">📈 Multi-Metric Performance Trend</div>', unsafe_allow_html=True)
+    
+    if not selected_parts:
+        st.warning("Please select metrics from the sidebar control panel.")
+    else:
+        trend_df = df[df["Particulars"].isin(selected_parts)].copy()
+        
+        fig1 = px.line(
+            trend_df, x="Month", y="Rs", 
+            color="Particulars",
+            markers=True,
+            template="plotly_white",
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig1.update_traces(
+            mode="lines+markers",
+            marker=dict(size=10),
+            line=dict(width=3)
+        )
+        fig1.update_layout(
+            hovermode="x unified",
+            legend=dict(orientation="h", y=-0.2, x=0.5, xanchor="center"),
+            xaxis_title="Reporting Period",
+            yaxis_title="Value (₹)",
+            height=400,
+            margin=dict(b=80),
+            plot_bgcolor="white",
+            paper_bgcolor="white"
+        )
+        fig1.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#E2E8F0')
+        fig1.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#E2E8F0')
+        
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    # Period Comparison
+    st.markdown('<div class="section-header">📊 Period-over-Period Comparison</div>', unsafe_allow_html=True)
+    
+    npa_gross_series = get_series(LABEL_GROSS_NPA)
+    npa_net_series = get_series(LABEL_NET_NPA)
+    
+    # Create comparison chart
+    fig_comp = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("Gross NPA Trend", "Net NPA Trend"),
+        horizontal_spacing=0.15
+    )
+    
+    fig_comp.add_trace(
+        go.Scatter(
+            x=npa_gross_series["Month"], y=npa_gross_series["Rs"],
+            name="Gross NPA",
+            fill="tozeroy",
+            line=dict(color="#1E3A8A", width=2),
+            fillcolor="rgba(30, 58, 138, 0.2)"
+        ),
+        row=1, col=1
+    )
+    
+    fig_comp.add_trace(
+        go.Scatter(
+            x=npa_net_series["Month"], y=npa_net_series["Rs"],
+            name="Net NPA",
+            fill="tozeroy",
+            line=dict(color="#10B981", width=2),
+            fillcolor="rgba(16, 185, 129, 0.2)"
+        ),
+        row=1, col=2
+    )
+    
+    # Add threshold lines
+    fig_comp.add_hline(y=npa_threshold, line_dash="dash", line_color="#EF4444", 
+                       annotation_text=f"Threshold ({npa_threshold:.1%})", row=1, col=1)
+    fig_comp.add_hline(y=npa_threshold, line_dash="dash", line_color="#EF4444", 
+                       annotation_text=f"Threshold ({npa_threshold:.1%})", row=1, col=2)
+    
+    fig_comp.update_layout(height=350, showlegend=False, template="plotly_white")
+    fig_comp.update_xaxes(title_text="Period")
+    fig_comp.update_yaxes(title_text="Ratio")
+    
+    st.plotly_chart(fig_comp, use_container_width=True)
+    
+    # Summary Statistics
+    if show_table:
+        st.markdown('<div class="section-header">📋 Key Metrics Summary</div>', unsafe_allow_html=True)
+        
+        summary_data = []
+        for label, db_label in [
+            ("Gross NPA", LABEL_GROSS_NPA),
+            ("Net NPA", LABEL_NET_NPA),
+            ("Core Capital", LABEL_CORE_CAP),
+            ("Total Capital", LABEL_TOTAL_CAP)
+        ]:
+            series = get_series(db_label)
+            if len(series) > 0:
+                summary_data.append({
+                    "Metric": label,
+                    "Current": format_value(series["Rs"].iloc[-1]),
+                    "Previous": format_value(series["Rs"].iloc[-2]) if len(series) > 1 else "N/A",
+                    "Change": f"{((series['Rs'].iloc[-1] / series['Rs'].iloc[-2]) - 1) * 100:.2f}%" if len(series) > 1 else "N/A",
+                    "Min": format_value(series["Rs"].min()),
+                    "Max": format_value(series["Rs"].max()),
+                    "Average": format_value(series["Rs"].mean())
+                })
+        
+        if summary_data:
+            summary_df = pd.DataFrame(summary_data)
+            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+# ── Tab 2: Asset Quality ──────────────────────────────────────────────────────
+with tab2:
+    st.markdown('<div class="section-header">📉 Asset Quality Monitoring Dashboard</div>', unsafe_allow_html=True)
+    
+    # Gauge Charts Row
+    g1, g2 = st.columns(2)
+    
+    with g1:
+        fig_gross = draw_gauge(kpi["gross_npa_c"], 0.15, "Gross NPA Ratio", npa_threshold, lower_better=True)
+        st.plotly_chart(fig_gross, use_container_width=True)
+    
+    with g2:
+        fig_net = draw_gauge(kpi["net_npa_c"], 0.10, "Net NPA Ratio", npa_threshold * 0.8, lower_better=True)
+        st.plotly_chart(fig_net, use_container_width=True)
+    
+    # NPA Classification Guide
+    with st.expander("📚 NPA Classification Standards (Basel III)"):
+        st.markdown("""
+        | Category | Definition | Provisioning Rate |
+        |----------|------------|-------------------|
+        | **Standard** | Performing assets with timely repayment | 0.25% - 2.00% |
+        | **Sub-Standard** | NPA for a period exceeding 90 days | 15% - 25% |
+        | **Doubtful** | NPA for a period exceeding 12 months | 25% - 100% |
+        | **Loss Asset** | Identified as non-recoverable | 100% |
+        
+        *Regulatory guidelines per Basel III framework*
+        """)
+    
+    # Detailed NPA Chart
+    st.markdown("### NPA Trend Analysis")
+    
+    fig_npa = go.Figure()
+    
+    fig_npa.add_trace(go.Bar(
+        x=npa_gross_series["Month"],
+        y=npa_gross_series["Rs"],
+        name="Gross NPA",
+        marker_color="#1E3A8A",
+        text=npa_gross_series["Rs"].apply(lambda x: f"{x:.2%}" if x < 1 else f"{x:,.0f}"),
+        textposition="outside"
+    ))
+    
+    fig_npa.add_trace(go.Scatter(
+        x=npa_net_series["Month"],
+        y=npa_net_series["Rs"],
+        name="Net NPA",
+        mode="lines+markers+text",
+        line=dict(color="#EF4444", width=3),
+        marker=dict(size=12),
+        text=npa_net_series["Rs"].apply(lambda x: f"{x:.2%}" if x < 1 else f"{x:,.0f}"),
+        textposition="top center"
+    ))
+    
+    fig_npa.update_layout(
+        template="plotly_white",
+        xaxis_title="Reporting Period",
+        yaxis_title="NPA Ratio",
+        hovermode="x unified",
+        legend=dict(orientation="h", y=-0.15),
+        height=400,
+        barmode="group"
+    )
+    
+    st.plotly_chart(fig_npa, use_container_width=True)
+    
+    # NPA Data Table
+    if show_table:
+        npa_combined = npa_gross_series.merge(npa_net_series, on="Month", suffixes=("_Gross", "_Net"))
+        npa_combined.columns = ["Month", "Gross NPA", "Net NPA"]
+        npa_combined["Spread"] = npa_combined["Gross NPA"] - npa_combined["Net NPA"]
+        
+        st.markdown("### NPA Data Summary")
+        st.dataframe(npa_combined, use_container_width=True, hide_index=True)
+
+# ── Tab 3: Capital Compliance ─────────────────────────────────────────────────
+with tab3:
+    st.markdown('<div class="section-header">🛡️ Capital Adequacy & Compliance Analysis</div>', unsafe_allow_html=True)
+    
+    core_cap_series = get_series(LABEL_CORE_CAP)
+    total_cap_series = get_series(LABEL_TOTAL_CAP)
+    
+    # Capital Gauges
+    g1, g2, g3 = st.columns(3)
+    
+    with g1:
+        fig_core = draw_gauge(kpi["core_cap_c"], 0.15, "Core Capital Ratio", 5.5, lower_better=False)
+        st.plotly_chart(fig_core, use_container_width=True)
+    
+    with g2:
+        fig_total = draw_gauge(kpi["total_cap_c"], 0.20, "Total Capital Ratio", cap_threshold, lower_better=False)
+        st.plotly_chart(fig_total, use_container_width=True)
+    
+    with g3:
+        buffer = kpi["total_cap_c"] - cap_threshold
+        buffer_pct = (buffer / cap_threshold * 100) if cap_threshold > 0 else 0
+        fig_buffer = draw_gauge(abs(buffer), cap_threshold * 0.5, "Capital Buffer", cap_threshold * 0.1, lower_better=False)
+        st.plotly_chart(fig_buffer, use_container_width=True)
+    
+    # Combined Capital Chart
+    st.markdown("### Capital Position Over Time")
+    
+    cap_df = core_cap_series.merge(total_cap_series, on="Month", suffixes=("_Core", "_Total"))
+    cap_df.columns = ["Month", "Core Capital", "Total Capital"]
+    
+    fig_cap = go.Figure()
+    
+    fig_cap.add_trace(go.Scatter(
+        x=cap_df["Month"], y=cap_df["Core Capital"],
+        name="Core Capital (Tier I)",
+        fill="tozeroy",
+        mode="lines+markers",
+        line=dict(color="#93C5FD", width=3),
+        fillcolor="rgba(147, 197, 253, 0.3)"
+    ))
+    
+    fig_cap.add_trace(go.Scatter(
+        x=cap_df["Month"], y=cap_df["Total Capital"],
+        name="Total Capital",
+        fill="tonexty",
+        mode="lines+markers",
+        line=dict(color="#1E3A8A", width=3),
+        fillcolor="rgba(30, 58, 138, 0.3)"
+    ))
+    
+    # Regulatory floor annotation
+    reg_floor = cap_threshold
+    fig_cap.add_hline(
+        y=reg_floor, 
+        line_dash="dash", 
+        line_color="#EF4444",
+        line_width=2,
+        annotation_text=f"Regulatory Minimum ({reg_floor:.1%})",
+        annotation_position="bottom right"
+    )
+    
+    fig_cap.update_layout(
+        template="plotly_white",
+        xaxis_title="Reporting Period",
+        yaxis_title="Capital Ratio",
+        hovermode="x unified",
+        legend=dict(orientation="h", y=1.1),
+        height=400,
+        annotations=[
+            dict(x=0, y=reg_floor, xref="paper", yref="y", 
+                 text=f"Min: {reg_floor:.1%}", showarrow=True, arrowhead=2)
         ]
+    )
+    
+    st.plotly_chart(fig_cap, use_container_width=True)
+    
+    # Capital Metrics Cards
+    st.markdown("### Current Capital Position")
+    
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        core_delta = kpi['core_cap_c'] - kpi['core_cap_p']
+        st.metric("Core Capital (Tier I)", format_value(kpi['core_cap_c']),
+                  delta=f"{core_delta:+.4f}" if kpi['core_cap_c'] < 2 else f"{core_delta:+,.2f}")
+    
+    with c2:
+        total_delta = kpi['total_cap_c'] - kpi['total_cap_p']
+        st.metric("Total Capital Ratio", format_value(kpi['total_cap_c']),
+                  delta=f"{total_delta:+.4f}" if kpi['total_cap_c'] < 2 else f"{total_delta:+,.2f}")
+    
+    with c3:
+        buffer_val = kpi["total_cap_c"] - cap_threshold
+        st.metric("Capital Buffer", format_value(abs(buffer_val)),
+                  delta="Above minimum" if buffer_val > 0 else "Below minimum",
+                  delta_color="normal" if buffer_val > 0 else "inverse")
+    
+    # Compliance Status Table
+    if show_table:
+        st.markdown("### Compliance Status Report")
+        
+        compliance_data = [
+            {"Parameter": "Gross NPA", "Current": format_value(kpi["gross_npa_c"]),
+             "Threshold": f"{npa_threshold:.1%}",
+             "Status": "✓ Compliant" if kpi["gross_npa_c"] <= npa_threshold else "✗ Breach"},
+            {"Parameter": "Net NPA", "Current": format_value(kpi["net_npa_c"]),
+             "Threshold": f"{npa_threshold * 0.8:.1%}",
+             "Status": "✓ Compliant" if kpi["net_npa_c"] <= npa_threshold * 0.8 else "✗ Breach"},
+            {"Parameter": "Core Capital", "Current": format_value(kpi["core_cap_c"]),
+             "Threshold": "5.5%",
+             "Status": "✓ Compliant" if kpi["core_cap_c"] >= 0.055 else "✗ Breach"},
+            {"Parameter": "Total Capital", "Current": format_value(kpi["total_cap_c"]),
+             "Threshold": f"{cap_threshold:.1%}",
+             "Status": "✓ Compliant" if kpi["total_cap_c"] >= cap_threshold else "✗ Breach"}
+        ]
+        
+        st.dataframe(pd.DataFrame(compliance_data), use_container_width=True, hide_index=True)
 
-        tdf = mdf[["Period"]].copy()
-        for key, label in display_metrics:
-            if key in mdf.columns:
-                tdf[label] = mdf[key]
+# ── Tab 4: Data Explorer ──────────────────────────────────────────────────────
+with tab4:
+    st.markdown('<div class="section-header">📋 Interactive Data Explorer</div>', unsafe_allow_html=True)
+    
+    # Filters
+    col_filter1, col_filter2 = st.columns(2)
+    
+    with col_filter1:
+        part_filter = st.multiselect("Filter by Particulars", options=available_parts)
+    
+    with col_filter2:
+        sort_col = st.selectbox("Sort By", options=["Month", "Particulars", "Rs"])
+    
+    # Apply filters
+    explorer_df = df.copy()
+    
+    if part_filter:
+        explorer_df = explorer_df[explorer_df["Particulars"].isin(part_filter)]
+    
+    explorer_df = explorer_df.sort_values(by=[sort_col, "Month"])
+    
+    # Display options
+    col_display1, col_display2 = st.columns(2)
+    
+    with col_display1:
+        rows_to_show = st.slider("Rows to Display", 5, 100, 25)
+    
+    with col_display2:
+        st.download_button(
+            "📥 Export CSV",
+            explorer_df.to_csv(index=False),
+            "mis_data_export.csv",
+            "text/csv",
+            key='csv_download'
+        )
+    
+    st.markdown(f"Showing {min(rows_to_show, len(explorer_df))} of {len(explorer_df)} records")
+    
+    # Data table with formatting
+    if show_raw:
+        st.dataframe(
+            explorer_df.head(rows_to_show),
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    # Pivot Table View
+    st.markdown("### Pivot View")
+    
+    if not explorer_df.empty:
+        pivot = explorer_df.pivot_table(
+            index="Particulars",
+            columns="Month",
+            values="Rs",
+            aggfunc="first"
+        )
+        st.dataframe(pivot, use_container_width=True)
+    
+    # Statistics
+    with st.expander("📊 Dataset Statistics"):
+        st.write(f"**Total Rows:** {len(df)}")
+        st.write(f"**Unique Metrics:** {df['Particulars'].nunique()}")
+        st.write(f"**Time Periods:** {df['Month'].nunique()}")
+        st.write(f"**Date Range:** {df['Month'].min()} to {df['Month'].max()}")
 
-        # Format ratio columns as percentage
-        pct_cols = [l for k, l in display_metrics if k in RATIO_KEYS and l in tdf.columns]
-        for col in pct_cols:
-            tdf[col] = tdf[col].apply(lambda x: f"{x:.2f}%" if pd.notna(x) else "—")
-
-        # Format numeric columns
-        num_cols = [c for c in tdf.columns if c != "Period" and c not in pct_cols]
-        col_cfg = {"Period": st.column_config.TextColumn("Period")}
-        for col in num_cols:
-            col_cfg[col] = st.column_config.NumberColumn(
-                col, format="%,.0f"
-            )
-        for col in pct_cols:
-            col_cfg[col] = st.column_config.TextColumn(col)
-
-        st.dataframe(tdf, use_container_width=True, hide_index=True,
-                     column_config=col_cfg, height=500)
-
-        # Raw data toggle
-        with st.expander("Show Raw Excel Data", expanded=False):
-            st.dataframe(raw_df[["Month", "Helper", "Particulars", "Rs"]],
-                         use_container_width=True, hide_index=True, height=400)
-
-
-# ================================================================
-# 8. ENTRY POINT
-# ================================================================
-if __name__ == "__main__":
-    main()
+# ---------------------- Footer ----------------------
+st.markdown("---")
+st.markdown(f"""
+<div style="text-align: center; color: #64748B; font-size: 0.85rem; padding: 1rem;">
+    <p style="margin: 0;">🏢 <strong>Basel Analytics</strong> | Executive MIS Dashboard</p>
+    <p style="margin: 0.5rem 0 0 0;">
+        Confidential Report | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | FY 2025-26
+    </p>
+</div>
+""", unsafe_allow_html=True)
