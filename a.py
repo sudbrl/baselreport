@@ -1,6 +1,6 @@
 """
-Executive MIS Dashboard  ·  Basel Analytics  ·  v4.0
-Financial Risk Intelligence Platform
+Executive MIS Dashboard  ·  Basel Analytics  ·  v5.0
+Financial Risk Intelligence Platform - Redesigned
 """
 import streamlit as st
 import pandas as pd
@@ -20,151 +20,160 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
-BG    = "#05070F"
-CARD  = "#0D1B3E"
-CARD2 = "#091228"
-BORD  = "#1E305A"
-TEAL  = "#00D4AA"
-BLUE  = "#3B82F6"
-RED   = "#FF5C5C"
-AMBER = "#F5A623"
-WHITE = "#E8EDF5"
-MUTED = "#8896B3"
-PALETTE = [TEAL, BLUE, AMBER, RED, "#A855F7", "#EC4899", "#14B8A6", "#F97316"]
-
-# ── CSS ───────────────────────────────────────────────────────────────────────
-st.markdown(f"""
+# ── DESIGN TOKENS & CSS ───────────────────────────────────────────────────────
+st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg: #0B0F19;
+    --bg-gradient: radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 40%),
+                   radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 40%);
+    --card: rgba(19, 24, 38, 0.7);
+    --card-solid: #131826;
+    --card-hover: #1A2031;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-hover: rgba(255, 255, 255, 0.12);
+    --text: #E2E8F0;
+    --text-muted: #94A3B8;
+    --primary: #3B82F6;
+    --success: #10B981;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --purple: #8B5CF6;
+}
 
 /* ─ Base ─ */
-html,body,.stApp                   {{background:{BG}!important;}}
-.main .block-container             {{padding:1.5rem 2rem 3rem;max-width:1680px;}}
-*,*::before,*::after               {{box-sizing:border-box;}}
-p,li,span,label,td,th,div          {{font-family:'Inter',sans-serif;color:{WHITE};}}
+html, body, .stApp {
+    background-color: var(--bg) !important;
+    background-image: var(--bg-gradient) !important;
+    background-attachment: fixed !important;
+    color: var(--text) !important;
+}
+*, *::before, *::after {
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif !important;
+}
+p, li, span, label, td, th, div { color: var(--text); }
+
+.main .block-container {
+    padding: 2rem 2.5rem 4rem;
+    max-width: 1600px;
+}
 
 /* ─ Sidebar ─ */
-section[data-testid="stSidebar"]   {{background:#050C1E!important;border-right:1px solid {BORD}!important;}}
-section[data-testid="stSidebar"] * {{color:{WHITE}!important;font-family:'Inter',sans-serif!important;}}
-.sb-logo                           {{font-family:'IBM Plex Mono',monospace!important;font-size:1.05rem;
-                                      font-weight:700;color:{TEAL}!important;letter-spacing:-0.5px;margin:0;}}
-.sb-tagline                        {{font-size:.63rem;letter-spacing:2px;text-transform:uppercase;color:{MUTED}!important;}}
-.sb-sec                            {{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-                                      color:{MUTED}!important;margin:1.1rem 0 .4rem;padding-bottom:.3rem;
-                                      border-bottom:1px solid {BORD};}}
+section[data-testid="stSidebar"] {
+    background: rgba(11, 15, 25, 0.95) !important;
+    border-right: 1px solid var(--border) !important;
+    backdrop-filter: blur(10px);
+}
+.sb-logo {
+    font-size: 1.2rem; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--primary), var(--success));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.sb-section {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-muted) !important;
+    margin-top: 1.5rem; margin-bottom: 0.5rem;
+}
 
 /* ─ Header ─ */
-.dash-header                       {{background:linear-gradient(135deg,{CARD} 0%,{CARD2} 100%);
-                                      border:1px solid {BORD};border-left:4px solid {TEAL};
-                                      border-radius:12px;padding:1.75rem 2rem;margin-bottom:1.25rem;
-                                      position:relative;overflow:hidden;}}
-.dash-header::before               {{content:'';position:absolute;top:-50%;right:-8%;width:380px;height:380px;
-                                      background:radial-gradient(circle,rgba(0,212,170,.07) 0%,transparent 68%);
-                                      pointer-events:none;}}
-.dash-eyebrow                      {{font-family:'IBM Plex Mono',monospace!important;font-size:.6rem;
-                                      font-weight:700;letter-spacing:3px;text-transform:uppercase;
-                                      color:{TEAL};margin-bottom:.4rem;}}
-.dash-title                        {{font-size:1.85rem;font-weight:800;color:{WHITE};margin:0 0 .25rem;line-height:1.15;}}
-.dash-meta                         {{display:flex;gap:2rem;flex-wrap:wrap;margin-top:.85rem;}}
-.dash-meta span                    {{font-family:'IBM Plex Mono',monospace!important;font-size:.76rem;color:{MUTED};}}
-.dash-meta strong                  {{color:{WHITE}!important;}}
+.app-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 1.5rem; border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+}
+.header-title { font-size: 2rem; font-weight: 800; line-height: 1.2; margin: 0; }
+.header-sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+.header-meta { display: flex; gap: 1.5rem; }
+.meta-item { text-align: right; }
+.meta-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+.meta-val { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 600; }
 
-/* ─ Status bar ─ */
-.status-bar                        {{display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1.2rem;}}
-.s-pill                            {{display:inline-flex;align-items:center;gap:.4rem;padding:.32rem .8rem;
-                                      border-radius:9999px;font-size:.66rem;font-weight:700;
-                                      font-family:'IBM Plex Mono',monospace!important;letter-spacing:.5px;border:1px solid;}}
-.s-pill.ok                         {{background:rgba(0,212,170,.1);border-color:rgba(0,212,170,.35);color:{TEAL};}}
-.s-pill.warn                       {{background:rgba(245,166,35,.1);border-color:rgba(245,166,35,.35);color:{AMBER};}}
-.s-pill.breach                     {{background:rgba(255,92,92,.1);border-color:rgba(255,92,92,.35);color:{RED};}}
-.s-dot                             {{width:6px;height:6px;border-radius:50%;flex-shrink:0;}}
-.s-dot.ok                          {{background:{TEAL};box-shadow:0 0 5px {TEAL};}}
-.s-dot.warn                        {{background:{AMBER};box-shadow:0 0 5px {AMBER};}}
-.s-dot.breach                      {{background:{RED};box-shadow:0 0 5px {RED};}}
-
-/* ─ KPI grid ─ */
-.kpi-grid                          {{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem;}}
-.kpi-card                          {{background:{CARD};border:1px solid {BORD};border-radius:10px;
-                                      padding:1.15rem 1.35rem;position:relative;overflow:hidden;
-                                      transition:transform .18s,box-shadow .18s;}}
-.kpi-card:hover                    {{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.4);}}
-.kpi-card::before                  {{content:'';position:absolute;top:0;left:0;width:3px;height:100%;
-                                      border-radius:10px 0 0 10px;}}
-.kpi-card.ok::before               {{background:{TEAL};}}
-.kpi-card.warn::before             {{background:{AMBER};}}
-.kpi-card.breach::before           {{background:{RED};}}
-.kpi-card.neutral::before          {{background:{BORD};}}
-.kpi-label                         {{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-                                      color:{MUTED};margin-bottom:.5rem;}}
-.kpi-val                           {{font-family:'IBM Plex Mono',monospace!important;font-size:1.9rem;
-                                      font-weight:700;color:{WHITE};line-height:1;margin-bottom:.4rem;}}
-.kpi-delta                         {{font-family:'IBM Plex Mono',monospace!important;font-size:.73rem;}}
-.kpi-delta.pos                     {{color:{TEAL};}}
-.kpi-delta.neg                     {{color:{RED};}}
-.kpi-delta.neu                     {{color:{MUTED};}}
-.kpi-badge                         {{display:inline-flex;align-items:center;margin-top:.5rem;padding:.16rem .5rem;
-                                      border-radius:9999px;font-size:.6rem;font-weight:700;
-                                      font-family:'IBM Plex Mono',monospace!important;letter-spacing:.5px;}}
-.kpi-badge.ok                      {{background:rgba(0,212,170,.1);color:{TEAL};}}
-.kpi-badge.warn                    {{background:rgba(245,166,35,.1);color:{AMBER};}}
-.kpi-badge.breach                  {{background:rgba(255,92,92,.1);color:{RED};}}
+/* ─ KPI Cards ─ */
+.kpi-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-bottom: 2rem;
+}
+.kpi-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 1.5rem; backdrop-filter: blur(12px);
+    transition: all 0.3s ease; position: relative; overflow: hidden;
+}
+.kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+    background: var(--primary);
+}
+.kpi-card.ok::before { background: var(--success); }
+.kpi-card.warn::before { background: var(--warning); }
+.kpi-card.danger::before { background: var(--danger); }
+.kpi-card:hover {
+    border-color: var(--border-hover); transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+.kpi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.kpi-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+.kpi-badge {
+    font-size: 0.6rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+}
+.kpi-badge.ok { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.kpi-badge.warn { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+.kpi-badge.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 2.25rem; font-weight: 700; line-height: 1; margin-bottom: 0.5rem; }
+.kpi-footer { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+.kpi-delta { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.kpi-delta.pos { color: var(--success); }
+.kpi-delta.neg { color: var(--danger); }
+.kpi-sub { color: var(--text-muted); font-size: 0.75rem; }
 
 /* ─ Alerts ─ */
-.alert                             {{display:flex;align-items:flex-start;gap:.85rem;padding:.85rem 1.1rem;
-                                      border-radius:10px;margin-bottom:.6rem;border:1px solid;}}
-.alert.danger                      {{background:rgba(255,92,92,.07);border-color:rgba(255,92,92,.25);border-left:4px solid {RED};}}
-.alert.warning                     {{background:rgba(245,166,35,.07);border-color:rgba(245,166,35,.25);border-left:4px solid {AMBER};}}
-.alert.success                     {{background:rgba(0,212,170,.07);border-color:rgba(0,212,170,.25);border-left:4px solid {TEAL};}}
-.alert-ico                         {{font-size:1.1rem;flex-shrink:0;line-height:1.5;}}
-.alert-ttl                         {{font-weight:700;font-size:.83rem;color:{WHITE};margin-bottom:.12rem;}}
-.alert-msg                         {{font-size:.76rem;color:{MUTED};}}
+.alert-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;
+    backdrop-filter: blur(12px);
+}
+.alert-icon { font-size: 1.5rem; }
+.alert-text h4 { margin: 0; font-size: 0.9rem; font-weight: 700; }
+.alert-text p { margin: 0; font-size: 0.8rem; color: var(--text-muted); }
 
-/* ─ Section labels ─ */
-.sec-lbl                           {{font-family:'IBM Plex Mono',monospace!important;font-size:.6rem;font-weight:700;
-                                      letter-spacing:2.5px;text-transform:uppercase;color:{TEAL};
-                                      padding-bottom:.5rem;margin-bottom:.9rem;border-bottom:1px solid {BORD};}}
+/* ─ Section Labels ─ */
+.sec-label {
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.sec-label::before {
+    content: ''; width: 4px; height: 16px; background: var(--primary); border-radius: 2px;
+}
 
-/* ─ Tabs ─ */
-.stTabs [data-baseweb="tab-list"]  {{background:{CARD}!important;border:1px solid {BORD};border-radius:10px;
-                                      padding:.28rem;gap:.18rem;margin-bottom:1.2rem;}}
-.stTabs [data-baseweb="tab"]       {{background:transparent!important;color:{MUTED}!important;border-radius:7px!important;
-                                      padding:.42rem 1.05rem!important;font-size:.79rem!important;
-                                      font-weight:600!important;border:none!important;transition:all .18s!important;}}
-.stTabs [aria-selected="true"]     {{background:{TEAL}!important;color:{BG}!important;}}
-.stTabs [data-baseweb="tab-panel"] {{padding:0!important;}}
+/* ─ Streamlit Overrides ─ */
+.stTabs [data-baseweb="tab-list"] { gap: 0.5rem; background: transparent; border-bottom: 1px solid var(--border); padding: 0; }
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important; color: var(--text-muted) !important;
+    padding: 0.75rem 1.25rem !important; font-size: 0.9rem !important; font-weight: 600 !important;
+    border-radius: 0 !important; border-bottom: 2px solid transparent !important;
+}
+.stTabs [aria-selected="true"] {
+    color: var(--primary) !important; border-bottom: 2px solid var(--primary) !important;
+}
+.stTabs [data-baseweb="tab-panel"] { padding-top: 1.5rem !important; }
 
-/* ─ Widgets ─ */
-.stSelectbox label,.stMultiSelect label,.stSlider label,
-.stNumberInput label,.stCheckbox label
-                                   {{color:{MUTED}!important;font-size:.79rem!important;}}
+div[data-testid="stMetric"] {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1rem; backdrop-filter: blur(12px);
+}
+div[data-testid="stMetric"] label { color: var(--text-muted) !important; font-size: 0.75rem !important; }
+div[data-testid="stMetric"] [data-testid="stMetricValue"] { color: var(--text) !important; font-family: 'JetBrains Mono', monospace !important; }
+
 .stSelectbox [data-baseweb="select"]>div,
-.stMultiSelect [data-baseweb="select"]>div
-                                   {{background:{CARD}!important;border-color:{BORD}!important;color:{WHITE}!important;}}
-div[data-testid="stMetric"]        {{background:{CARD};padding:.9rem;border-radius:10px;border:1px solid {BORD};}}
-div[data-testid="stMetric"] label  {{color:{MUTED}!important;font-size:.75rem!important;}}
-div[data-testid="stMetric"] [data-testid="stMetricValue"]
-                                   {{color:{WHITE}!important;font-family:'IBM Plex Mono',monospace!important;}}
+.stMultiSelect [data-baseweb="select"]>div {
+    background: var(--card-solid) !important; border-color: var(--border) !important; color: var(--text) !important;
+}
 
-/* ─ Expander ─ */
-.streamlit-expanderHeader          {{background:{CARD}!important;border:1px solid {BORD}!important;
-                                      border-radius:8px!important;color:{WHITE}!important;}}
-.streamlit-expanderContent         {{background:{CARD2}!important;border:1px solid {BORD}!important;border-top:none!important;}}
+.stDataFrame { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 
-/* ─ Download / Buttons ─ */
-.stDownloadButton button           {{background:rgba(0,212,170,.1)!important;border:1px solid rgba(0,212,170,.35)!important;
-                                      color:{TEAL}!important;border-radius:8px!important;font-size:.79rem!important;font-weight:600!important;}}
-.stDownloadButton button:hover     {{background:rgba(0,212,170,.2)!important;}}
-
-/* ─ Misc ─ */
-#MainMenu,footer,header            {{visibility:hidden;}}
-hr                                 {{border-color:{BORD}!important;}}
-.stCaption p                       {{color:{MUTED}!important;font-size:.74rem!important;}}
-.stInfo,.stSuccess,.stWarning,.stError {{border-radius:10px!important;}}
-
-/* ─ Responsive ─ */
-@media(max-width:900px)            {{.kpi-grid{{grid-template-columns:repeat(2,1fr);}}.dash-title{{font-size:1.4rem;}}}}
-@media(max-width:600px)            {{.kpi-grid{{grid-template-columns:1fr;}}.main .block-container{{padding:1rem;}}}}
+#MainMenu, footer, header { visibility: hidden; }
+hr { border-color: var(--border) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,15 +187,20 @@ def load_data():
         r.raise_for_status()
         xls = pd.ExcelFile(BytesIO(r.content))
         df  = xls.parse("Data")
-        df.columns = (df.columns.str.strip()
-                      .str.replace(r'\s+', ' ', regex=True)
-                      .str.replace('\xa0', ' '))
-        drop = [c for c in df.columns
-                if c.startswith("Unnamed") or c in ("Helper", "Rs.1", "Rs.2", "Movements(%)")]
+        
+        # Clean columns
+        df.columns = (df.columns.str.strip().str.replace(r'\s+', ' ', regex=True).str.replace('\xa0', ' '))
+        drop = [c for c in df.columns if c.startswith("Unnamed") or c in ("Helper", "Rs.1", "Rs.2", "Movements(%)")]
         df.drop(columns=drop, errors="ignore", inplace=True)
+        
         df["Month"]       = df["Month"].astype(str).str.strip()
         df["Particulars"] = df["Particulars"].astype(str).str.strip()
         df["Rs"]          = pd.to_numeric(df["Rs"], errors="coerce")
+        
+        # Drop rows where Month or Particulars are invalid
+        df = df.dropna(subset=["Month", "Particulars"])
+        df = df[df["Month"] != "nan"]
+        
         return df
     except Exception:
         return None
@@ -209,6 +223,9 @@ LBL = {
     "net_npa":    find_row(["net",   "npa"]),
     "core_cap":   find_row(["core",  "capital"]),
     "total_cap":  find_row(["total", "capital"]),
+    "rwe_credit": find_row(["risk weighted exposure for credit"]),
+    "rwe_op":     find_row(["risk weighted exposure for operational"]),
+    "rwe_mkt":    find_row(["risk weighted exposure for market"]),
 }
 for name, val in LBL.items():
     if val is None:
@@ -223,7 +240,6 @@ def get_val(label, month):
     return float(r.iloc[0]) if not r.empty and pd.notna(r.iloc[0]) else 0.0
 
 def get_series(label, months=None):
-    """Return Month/Rs series, optionally filtered to a list of months."""
     s = df[df["Particulars"] == label][["Month", "Rs"]].dropna(subset=["Rs"]).copy()
     if months is not None:
         s = s[s["Month"].isin(months)]
@@ -239,137 +255,103 @@ def fmt(v):
     return f"{v:.2%}" if is_ratio(v) else f"{v:,.2f}"
 
 def pct_chg(cur, prv):
-    if prv is None or abs(prv) < 1e-9: return None
+    if prv is None or abs(prv) < 1e-9: return 0.0
     return ((cur - prv) / abs(prv)) * 100
 
 def get_status(v, thr, lower_better=True):
     if lower_better:
         if v <= thr:           return "ok"
         elif v <= thr * 1.25:  return "warn"
-        return "breach"
+        return "danger"
     else:
         if v >= thr:           return "ok"
         elif v >= thr * 0.8:   return "warn"
-        return "breach"
+        return "danger"
+
+def hex_to_rgba(hex, alpha):
+    hex = hex.lstrip('#')
+    r, g, b = int(hex[0:2], 16), int(hex[2:4], 16), int(hex[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
 
 
-# ── PLOTLY DARK HELPERS ───────────────────────────────────────────────────────
-_PLOT_BASE = dict(
-    paper_bgcolor=CARD, plot_bgcolor=BG,
-    font=dict(color=WHITE, family="Inter", size=11),
-    xaxis=dict(gridcolor=BORD, linecolor=BORD, tickfont=dict(color=MUTED), title_font=dict(color=MUTED)),
-    yaxis=dict(gridcolor=BORD, linecolor=BORD, tickfont=dict(color=MUTED), title_font=dict(color=MUTED)),
-    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor=BORD, font=dict(color=WHITE)),
-    hoverlabel=dict(bgcolor=CARD2, bordercolor=BORD, font=dict(color=WHITE, size=12)),
-    hovermode="x unified",
-    margin=dict(l=20, r=20, t=45, b=60),
+# ── PLOTLY LAYOUT TEMPLATE ────────────────────────────────────────────────────
+COLORS = {
+    "bg": "rgba(0,0,0,0)", "text": "#E2E8F0", "muted": "#94A3B8", 
+    "grid": "rgba(255,255,255,0.04)", "primary": "#3B82F6", "success": "#10B981",
+    "warning": "#F59E0B", "danger": "#EF4444", "purple": "#8B5CF6"
+}
+
+PLOT_LAYOUT = dict(
+    paper_bgcolor=COLORS["bg"], plot_bgcolor=COLORS["bg"],
+    font=dict(color=COLORS["text"], family="Inter", size=12),
+    margin=dict(l=20, r=20, t=40, b=20),
+    xaxis=dict(gridcolor=COLORS["grid"], zeroline=False, tickfont=dict(color=COLORS["muted"])),
+    yaxis=dict(gridcolor=COLORS["grid"], zeroline=False, tickfont=dict(color=COLORS["muted"])),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color=COLORS["muted"])),
+    hoverlabel=dict(bgcolor="#131826", font=dict(color=COLORS["text"]))
 )
 
-def dark_fig(height=380, **kwargs):
-    """Return a go.Figure with dark layout pre-applied."""
-    fig = go.Figure()
-    fig.update_layout(height=height, **_PLOT_BASE, **kwargs)
-    fig.update_xaxes(showgrid=True, gridwidth=1)
-    fig.update_yaxes(showgrid=True, gridwidth=1)
-    return fig
-
-def apply_dark(fig, height=380, **kwargs):
-    fig.update_layout(height=height, **_PLOT_BASE, **kwargs)
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor=BORD)
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=BORD)
-    return fig
-
-def dark_gauge(value, max_val, title, threshold, lower_better=True):
+def dark_gauge(value, max_val, title, threshold, lower_better=True, color=None):
     v  = value * 100    if is_ratio(value)     else value
     t  = threshold * 100 if is_ratio(threshold) else threshold
     m  = max_val * 100  if is_ratio(max_val)   else max_val
     mx = m * 1.55
 
     st_cls = get_status(value, threshold, lower_better)
-    bar_c  = TEAL if st_cls == "ok" else (AMBER if st_cls == "warn" else RED)
+    bar_c  = color if color else (COLORS["success"] if st_cls == "ok" else (COLORS["warning"] if st_cls == "warn" else COLORS["danger"]))
 
-    steps = ([{"range": [0, t],          "color": f"rgba(0,212,170,.12)"},
-               {"range": [t, t * 1.25],  "color": f"rgba(245,166,35,.12)"},
-               {"range": [t * 1.25, mx], "color": f"rgba(255,92,92,.12)"}]
+    steps = ([{"range": [0, t], "color": hex_to_rgba(COLORS["success"], 0.15)},
+              {"range": [t, t * 1.25], "color": hex_to_rgba(COLORS["warning"], 0.15)},
+              {"range": [t * 1.25, mx], "color": hex_to_rgba(COLORS["danger"], 0.15)}]
              if lower_better else
-             [{"range": [0, t * 0.8],    "color": f"rgba(255,92,92,.12)"},
-               {"range": [t * 0.8, t],   "color": f"rgba(245,166,35,.12)"},
-               {"range": [t, mx],        "color": f"rgba(0,212,170,.12)"}])
+             [{"range": [0, t * 0.8], "color": hex_to_rgba(COLORS["danger"], 0.15)},
+              {"range": [t * 0.8, t], "color": hex_to_rgba(COLORS["warning"], 0.15)},
+              {"range": [t, mx], "color": hex_to_rgba(COLORS["success"], 0.15)}])
 
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=v,
         gauge=dict(
-            axis=dict(range=[0, mx], tickcolor=MUTED, tickfont=dict(color=MUTED, size=9)),
-            bar=dict(color=bar_c, thickness=0.6),
-            bgcolor=BG, bordercolor=BORD, borderwidth=1,
+            axis=dict(range=[0, mx], tickcolor=COLORS["muted"], tickfont=dict(color=COLORS["muted"], size=10)),
+            bar=dict(color=bar_c, thickness=0.45),
+            bgcolor=COLORS["bg"], bordercolor=COLORS["grid"], borderwidth=1,
             steps=steps,
-            threshold=dict(line=dict(color=RED, width=2.5), thickness=0.8, value=t),
+            threshold=dict(line=dict(color=COLORS["danger"], width=3), thickness=0.8, value=t),
         ),
-        number=dict(suffix="%", font=dict(size=24, color=WHITE, family="IBM Plex Mono")),
-        title=dict(text=title, font=dict(size=11, color=MUTED, family="Inter")),
+        number=dict(suffix="%", font=dict(size=28, color=COLORS["text"], family="JetBrains Mono")),
+        title=dict(text=title, font=dict(size=12, color=COLORS["muted"], family="Inter")),
     ))
-    fig.update_layout(height=210, paper_bgcolor=CARD, plot_bgcolor=BG,
-                      margin=dict(l=20, r=20, t=28, b=18),
-                      font=dict(color=WHITE))
+    fig.update_layout(height=220, paper_bgcolor=COLORS["bg"], plot_bgcolor=COLORS["bg"], margin=dict(l=10, r=10, t=40, b=10))
     return fig
 
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f"""
-    <div style="padding:1.1rem 0 1rem;border-bottom:1px solid {BORD};">
-      <p class="sb-logo">BASEL<span style="color:{WHITE}">ANALYTICS</span></p>
-      <p class="sb-tagline">Risk Intelligence Platform</p>
-    </div>""", unsafe_allow_html=True)
-
-    all_months  = df["Month"].dropna().unique().tolist()
+    st.markdown('<div class="sb-logo">BASEL ANALYTICS</div>', unsafe_allow_html=True)
+    st.caption("Executive Risk Intelligence")
+    
+    all_months = df["Month"].dropna().unique().tolist()
     avail_parts = df["Particulars"].dropna().unique().tolist()
 
-    st.markdown('<p class="sb-sec">Reporting Period</p>', unsafe_allow_html=True)
-    selected_month = st.selectbox("Period", all_months,
-                                  index=len(all_months) - 1,
-                                  label_visibility="collapsed")
+    st.markdown('<div class="sb-section">Reporting Period</div>', unsafe_allow_html=True)
+    selected_month = st.selectbox("Period", all_months, index=len(all_months) - 1, label_visibility="collapsed")
     pm = prev_month_of(selected_month, all_months)
-    st.caption(f"Prior period → **{pm}**")
+    st.caption(f"Comparing against: **{pm}**")
 
-    st.markdown('<p class="sb-sec">Metric Selection</p>', unsafe_allow_html=True)
-    selected_parts = st.multiselect(
-        "Metrics", avail_parts,
-        default=avail_parts[:4] if len(avail_parts) >= 4 else avail_parts,
-        label_visibility="collapsed",
-    )
+    st.markdown('<div class="sb-section">Analysis Window</div>', unsafe_allow_html=True)
+    comparison_periods = st.slider("Last N Periods", min_value=2, max_value=min(12, len(all_months)), value=6, label_visibility="collapsed")
 
-    # ── FIX 1: comparison_periods slider — now wired to recent_months ──────────
-    st.markdown('<p class="sb-sec">Analysis Window</p>', unsafe_allow_html=True)
-    comparison_periods = st.slider(
-        "Last N Periods",
-        min_value=2,
-        max_value=min(12, len(all_months)),
-        value=6,
-        label_visibility="collapsed",
-    )
-    st.caption(f"Showing last **{comparison_periods}** periods in all charts")
-
-    # ── FIX 2 & 3: Display options — clearly labelled so behaviour is obvious ─
-    st.markdown('<p class="sb-sec">Display Options</p>', unsafe_allow_html=True)
-    show_tables = st.checkbox("Show Analysis Tables", value=True,
-                              help="Toggle summary/compliance tables in Tabs 1–3")
-    show_raw    = st.checkbox("Show Raw Data Table",  value=False,
-                              help="Show complete unfiltered dataset in Data Explorer")
-
-    st.markdown('<p class="sb-sec">Compliance Thresholds</p>', unsafe_allow_html=True)
-    npa_threshold = st.number_input("NPA Warning (%)",  value=5.0, step=0.5, format="%.1f") / 100
+    st.markdown('<div class="sb-section">Compliance Thresholds</div>', unsafe_allow_html=True)
+    npa_threshold = st.number_input("NPA Warning (%)", value=5.0, step=0.5, format="%.1f") / 100
     cap_threshold = st.number_input("Capital Floor (%)", value=8.5, step=0.5, format="%.1f") / 100
 
-    st.markdown('<p class="sb-sec">System</p>', unsafe_allow_html=True)
+    st.markdown('<div class="sb-section">System</div>', unsafe_allow_html=True)
     st.caption(f"🕒 {datetime.now().strftime('%Y-%m-%d  %H:%M')}")
     st.caption(f"📦 {len(df):,} records · {len(all_months)} periods")
 
+recent_months = all_months[-comparison_periods:]
 
-# ── KEY DERIVED VALUES — slider fix lives here ────────────────────────────────
-recent_months = all_months[-comparison_periods:]   # ← FIX 1: used in EVERY chart below
-
+# Derived Values
 kpi = dict(
     gnpa_c = get_val(LBL["gross_npa"],  selected_month),
     gnpa_p = get_val(LBL["gross_npa"],  pm),
@@ -384,459 +366,238 @@ kpi = dict(
 
 # ── HEADER ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div class="dash-header">
-  <div class="dash-eyebrow">Basel III Compliance Monitoring</div>
-  <h1 class="dash-title">Executive MIS Dashboard</h1>
-  <div class="dash-meta">
-    <span>📅 Period&nbsp;<strong>{selected_month}</strong></span>
-    <span>📆 Prior&nbsp;<strong>{pm}</strong></span>
-    <span>🔍 Window&nbsp;<strong>Last {comparison_periods} periods</strong></span>
-    <span>🗄️ Records&nbsp;<strong>{len(df):,}</strong></span>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-
-# ── COMPLIANCE STATUS BAR ─────────────────────────────────────────────────────
-def s_pill(label, val, thr, lower_better=True):
-    cls  = get_status(val, thr, lower_better)
-    tags = {"ok": "COMPLIANT", "warn": "WARNING", "breach": "BREACH"}
-    return (f'<div class="s-pill {cls}">'
-            f'<span class="s-dot {cls}"></span>'
-            f'{label}&nbsp;{fmt(val)}&nbsp;—&nbsp;{tags[cls]}'
-            f'</div>')
-
-st.markdown(
-    '<div class="status-bar">'
-    + s_pill("Gross NPA",    kpi["gnpa_c"], npa_threshold,       lower_better=True)
-    + s_pill("Net NPA",      kpi["nnpa_c"], npa_threshold * 0.8, lower_better=True)
-    + s_pill("Core Capital", kpi["core_c"], 0.055,               lower_better=False)
-    + s_pill("Total Capital",kpi["tot_c"],  cap_threshold,       lower_better=False)
-    + '</div>',
-    unsafe_allow_html=True,
-)
+<div class="app-header">
+    <div>
+        <h1 class="header-title">Executive MIS Dashboard</h1>
+        <div class="header-sub">Basel III Compliance Monitoring & Financial Risk Intelligence</div>
+    </div>
+    <div class="header-meta">
+        <div class="meta-item">
+            <div class="meta-label">Current Period</div>
+            <div class="meta-val">{selected_month}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Prior Period</div>
+            <div class="meta-val">{pm}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Analysis Window</div>
+            <div class="meta-val">{comparison_periods} Pds</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ── KPI CARDS ─────────────────────────────────────────────────────────────────
-def kpi_card_html(label, cur, prv, lower_better=True, thr=None):
-    delta = cur - prv
-    zero  = abs(delta) < 1e-9
-    cls   = get_status(cur, thr, lower_better) if thr is not None else "neutral"
-    badge_lbl = {"ok": "✓ COMPLIANT", "warn": "⚠ WARNING", "breach": "✗ BREACH"}
-    badge = (f'<div class="kpi-badge {cls}">{badge_lbl[cls]}</div>'
-             if thr is not None else "")
-
+def render_kpi_card(title, cur, prv, lower_better, thr, sub):
+    delta = pct_chg(cur, prv)
+    zero  = abs(delta) < 0.01
+    
     if zero:
-        dcls, dtxt = "neu", "— no change"
+        d_cls, dtxt = "pos", "0.00%"
     else:
-        up   = delta > 0
+        up = delta > 0
         good = (up and not lower_better) or (not up and lower_better)
-        dcls = "pos" if good else "neg"
-        arrow = "▲" if up else "▼"
-        p    = pct_chg(cur, prv)
-        pstr = f"{abs(p):.2f}%" if p is not None else fmt(abs(delta))
-        dtxt = f"{arrow} {pstr} vs prior"
-
-    return (f'<div class="kpi-card {cls}">'
-            f'  <div class="kpi-label">{label}</div>'
-            f'  <div class="kpi-val">{fmt(cur)}</div>'
-            f'  <div class="kpi-delta {dcls}">{dtxt}</div>'
-            f'  {badge}'
-            f'</div>')
+        d_cls = "pos" if good else "neg"
+        dtxt = f"{abs(delta):.2f}%"
+        
+    st_cls = get_status(cur, thr, lower_better)
+    
+    return f"""
+    <div class="kpi-card {st_cls}">
+        <div class="kpi-header">
+            <span class="kpi-title">{title}</span>
+            <span class="kpi-badge {st_cls}">{st_cls.upper()}</span>
+        </div>
+        <div class="kpi-value">{fmt(cur)}</div>
+        <div class="kpi-footer">
+            <span class="kpi-delta {d_cls}">{'▲' if delta>=0 else '▼'} {dtxt}</span>
+            <span class="kpi-sub">· {sub}</span>
+        </div>
+    </div>
+    """
 
 st.markdown(
     '<div class="kpi-grid">'
-    + kpi_card_html("Gross NPA",        kpi["gnpa_c"], kpi["gnpa_p"], True,  npa_threshold)
-    + kpi_card_html("Net NPA",          kpi["nnpa_c"], kpi["nnpa_p"], True,  npa_threshold * 0.8)
-    + kpi_card_html("Core Capital",     kpi["core_c"], kpi["core_p"], False, 0.055)
-    + kpi_card_html("Capital Adequacy", kpi["tot_c"],  kpi["tot_p"],  False, cap_threshold)
+    + render_kpi_card("Gross NPA", kpi["gnpa_c"], kpi["gnpa_p"], True, npa_threshold, f"Limit: {fmt(npa_threshold)}")
+    + render_kpi_card("Net NPA", kpi["nnpa_c"], kpi["nnpa_p"], True, npa_threshold * 0.8, f"Limit: {fmt(npa_threshold * 0.8)}")
+    + render_kpi_card("Core Capital", kpi["core_c"], kpi["core_p"], False, 0.055, "Tier 1 Minimum")
+    + render_kpi_card("Capital Adequacy", kpi["tot_c"], kpi["tot_p"], False, cap_threshold, "Regulatory Floor")
     + '</div>',
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
-
-# ── ALERT BANNERS ─────────────────────────────────────────────────────────────
-def alert_html(level, icon, title, msg):
-    return (f'<div class="alert {level}">'
-            f'  <div class="alert-ico">{icon}</div>'
-            f'  <div>'
-            f'    <div class="alert-ttl">{title}</div>'
-            f'    <div class="alert-msg">{msg}</div>'
-            f'  </div>'
-            f'</div>')
-
+# ── ALERTS ────────────────────────────────────────────────────────────────────
 alerts = ""
 if kpi["gnpa_c"] > npa_threshold:
-    alerts += alert_html("danger", "🚨", "Gross NPA Breach",
-        f"Current {fmt(kpi['gnpa_c'])} exceeds regulatory threshold of {fmt(npa_threshold)}. "
-        f"Immediate escalation required.")
-elif kpi["gnpa_c"] > npa_threshold * 0.85:
-    alerts += alert_html("warning", "⚠️", "Gross NPA Approaching Limit",
-        f"{fmt(kpi['gnpa_c'])} is within 15% of the {fmt(npa_threshold)} threshold. Monitor closely.")
-
-if kpi["tot_c"] < cap_threshold:
-    alerts += alert_html("danger", "🚨", "Capital Adequacy Breach",
-        f"Total Capital {fmt(kpi['tot_c'])} is below the regulatory minimum of {fmt(cap_threshold)}.")
-elif kpi["tot_c"] < cap_threshold * 1.2:
-    alerts += alert_html("warning", "⚠️", "Capital Buffer Eroding",
-        f"{fmt(kpi['tot_c'])} is approaching the {fmt(cap_threshold)} regulatory floor.")
-
-if not alerts:
-    alerts = alert_html("success", "✅", "All Metrics Within Regulatory Limits",
-        f"No compliance breaches detected as of {selected_month}. "
-        f"Continue monitoring period-over-period trends.")
+    alerts += ('<div class="alert-box" style="border-left: 4px solid var(--danger);">'
+               '<div class="alert-icon">🚨</div>'
+               '<div class="alert-text"><h4>Gross NPA Breach</h4>'
+               f'<p>Current {fmt(kpi["gnpa_c"])} exceeds regulatory threshold of {fmt(npa_threshold)}. Immediate escalation required.</p></div></div>')
+elif kpi["tot_c"] < cap_threshold:
+    alerts += ('<div class="alert-box" style="border-left: 4px solid var(--danger);">'
+               '<div class="alert-icon">🚨</div>'
+               '<div class="alert-text"><h4>Capital Adequacy Breach</h4>'
+               f'<p>Total Capital {fmt(kpi["tot_c"])} is below the regulatory minimum of {fmt(cap_threshold)}.</p></div></div>')
+else:
+    alerts += ('<div class="alert-box" style="border-left: 4px solid var(--success);">'
+               '<div class="alert-icon">✅</div>'
+               '<div class="alert-text"><h4>All Metrics Within Regulatory Limits</h4>'
+               f'<p>No compliance breaches detected as of {selected_month}. Continue monitoring period-over-period trends.</p></div></div>')
 
 st.markdown(alerts, unsafe_allow_html=True)
 
 
 # ── TABS ──────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📈  Performance",
+    "📊  Executive Overview",
     "📉  Asset Quality",
-    "🛡️  Capital",
+    "🛡️  Capital & RWA",
     "🗃️  Data Explorer",
 ])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — Performance
+# TAB 1 — Executive Overview
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown('<div class="sec-lbl">Multi-Metric Performance Trend</div>',
-                unsafe_allow_html=True)
-
-    if not selected_parts:
-        st.info("Select metrics in the sidebar to populate this chart.")
-    else:
-        # FIX 1: filter by recent_months
-        trend_df = (df[df["Particulars"].isin(selected_parts)]
-                    .copy()
-                    .pipe(lambda d: d[d["Month"].isin(recent_months)]))
-
-        fig_trend = px.line(trend_df, x="Month", y="Rs", color="Particulars",
-                            markers=True, color_discrete_sequence=PALETTE)
-        fig_trend.update_traces(mode="lines+markers",
-                                marker=dict(size=8), line=dict(width=2.5))
-        apply_dark(fig_trend, height=390,
-                   xaxis_title="Period", yaxis_title="Value",
-                   legend=dict(orientation="h", y=-0.18, x=0.5, xanchor="center",
-                               bgcolor="rgba(0,0,0,0)", bordercolor=BORD,
-                               font=dict(color=WHITE)))
-        st.plotly_chart(fig_trend, use_container_width=True)
-
-    # NPA side-by-side
-    st.markdown('<div class="sec-lbl">NPA Period-over-Period</div>',
-                unsafe_allow_html=True)
-    gnpa_s = get_series(LBL["gross_npa"], recent_months)   # FIX 1
-    nnpa_s = get_series(LBL["net_npa"],   recent_months)   # FIX 1
-
-    fig2 = make_subplots(rows=1, cols=2,
-                         subplot_titles=("Gross NPA", "Net NPA"),
-                         horizontal_spacing=0.12)
-    fig2.add_trace(go.Scatter(
-        x=gnpa_s["Month"], y=gnpa_s["Rs"], name="Gross NPA",
-        fill="tozeroy", mode="lines+markers",
-        line=dict(color=TEAL, width=2.5), fillcolor="rgba(0,212,170,.14)",
-        marker=dict(size=8, color=TEAL),
-    ), row=1, col=1)
-    fig2.add_trace(go.Scatter(
-        x=nnpa_s["Month"], y=nnpa_s["Rs"], name="Net NPA",
-        fill="tozeroy", mode="lines+markers",
-        line=dict(color=BLUE, width=2.5), fillcolor="rgba(59,130,246,.14)",
-        marker=dict(size=8, color=BLUE),
-    ), row=1, col=2)
-    for col in (1, 2):
-        fig2.add_hline(y=npa_threshold, line_dash="dash", line_color=RED,
-                       line_width=1.5,
-                       annotation_text=f"Threshold {fmt(npa_threshold)}",
-                       annotation_font=dict(color=RED, size=10),
-                       row=1, col=col)
-    fig2.update_layout(
-        height=330, paper_bgcolor=CARD, plot_bgcolor=BG,
-        font=dict(color=WHITE, family="Inter"),
-        showlegend=False, margin=dict(l=20, r=20, t=45, b=60),
-        hoverlabel=dict(bgcolor=CARD2, bordercolor=BORD, font=dict(color=WHITE)),
+    g1, g2, g3, g4 = st.columns(4)
+    with g1: st.plotly_chart(dark_gauge(kpi["gnpa_c"], 0.15, "Gross NPA", npa_threshold, True), use_container_width=True)
+    with g2: st.plotly_chart(dark_gauge(kpi["nnpa_c"], 0.10, "Net NPA", npa_threshold * 0.8, True), use_container_width=True)
+    with g3: st.plotly_chart(dark_gauge(kpi["core_c"], 0.15, "Core Capital", 0.055, False), use_container_width=True)
+    with g4: st.plotly_chart(dark_gauge(kpi["tot_c"], 0.20, "Total Capital", cap_threshold, False), use_container_width=True)
+    
+    st.markdown('<div class="sec-label">Risk & Capital Trend Analysis</div>', unsafe_allow_html=True)
+    
+    trend_df = df[(df["Particulars"].isin([LBL["gross_npa"], LBL["net_npa"], LBL["core_cap"], LBL["total_cap"]])) & 
+                  (df["Month"].isin(recent_months))].copy()
+    trend_df["Metric Type"] = trend_df["Particulars"].apply(lambda x: "NPA Ratios" if "npa" in x.lower() else "Capital Ratios")
+    
+    fig_trend = px.line(
+        trend_df, x="Month", y="Rs", color="Particulars", markers=True,
+        color_discrete_map={LBL["gross_npa"]: COLORS["danger"], LBL["net_npa"]: COLORS["warning"], 
+                            LBL["core_cap"]: COLORS["primary"], LBL["total_cap"]: COLORS["success"]}
     )
-    fig2.update_xaxes(showgrid=True, gridwidth=1, gridcolor=BORD, tickfont=dict(color=MUTED))
-    fig2.update_yaxes(showgrid=True, gridwidth=1, gridcolor=BORD, tickfont=dict(color=MUTED))
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # FIX 2: show_tables correctly gates this summary
-    if show_tables:
-        st.markdown('<div class="sec-lbl">Key Metrics Summary</div>',
-                    unsafe_allow_html=True)
-        rows = []
-        for label, key in [("Gross NPA", "gross_npa"), ("Net NPA", "net_npa"),
-                            ("Core Capital", "core_cap"), ("Total Capital", "total_cap")]:
-            s = get_series(LBL[key], recent_months)          # FIX 1
-            if len(s) >= 2:
-                cur, prv = s["Rs"].iloc[-1], s["Rs"].iloc[-2]
-                p = pct_chg(cur, prv)
-                chg = f"{p:+.2f}%" if p is not None else "N/A"
-            elif len(s) == 1:
-                cur, prv, chg = s["Rs"].iloc[-1], None, "N/A"
-            else:
-                continue
-            rows.append({
-                "Metric":   label,
-                "Current":  fmt(cur),
-                "Previous": fmt(prv) if prv is not None else "N/A",
-                "Change":   chg,
-                "Min":      fmt(s["Rs"].min()),
-                "Max":      fmt(s["Rs"].max()),
-                "Average":  fmt(s["Rs"].mean()),
-            })
-        if rows:
-            st.dataframe(pd.DataFrame(rows),
-                         use_container_width=True, hide_index=True)
+    fig_trend.update_traces(mode="lines+markers", marker=dict(size=8), line=dict(width=2.5))
+    fig_trend.update_layout(**PLOT_LAYOUT, height=400, yaxis=dict(gridcolor=COLORS["grid"], tickformat=".1%"))
+    st.plotly_chart(fig_trend, use_container_width=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — Asset Quality
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown('<div class="sec-lbl">Asset Quality Dashboard</div>',
-                unsafe_allow_html=True)
-
-    g1, g2 = st.columns(2)
-    with g1:
-        st.plotly_chart(
-            dark_gauge(kpi["gnpa_c"], 0.15, "Gross NPA Ratio",
-                       npa_threshold, lower_better=True),
-            use_container_width=True)
-    with g2:
-        st.plotly_chart(
-            dark_gauge(kpi["nnpa_c"], 0.10, "Net NPA Ratio",
-                       npa_threshold * 0.8, lower_better=True),
-            use_container_width=True)
-
-    with st.expander("📚 NPA Classification — Basel III Reference"):
-        st.markdown("""
-| Category | Definition | Provisioning |
-|---|---|---|
-| **Standard** | Performing; timely repayment | 0.25% – 2.00% |
-| **Sub-Standard** | NPA > 90 days | 15% – 25% |
-| **Doubtful** | NPA > 12 months | 25% – 100% |
-| **Loss** | Non-recoverable | 100% |
-""")
-
-    st.markdown('<div class="sec-lbl">NPA Trend Analysis</div>',
-                unsafe_allow_html=True)
-
-    gnpa_s = get_series(LBL["gross_npa"], recent_months)   # FIX 1
-    nnpa_s = get_series(LBL["net_npa"],   recent_months)   # FIX 1
-
-    fig_npa = go.Figure()
-    fig_npa.add_trace(go.Bar(
-        x=gnpa_s["Month"], y=gnpa_s["Rs"], name="Gross NPA",
-        marker_color=TEAL, marker_opacity=0.85,
-        text=gnpa_s["Rs"].apply(fmt), textposition="outside",
-        textfont=dict(color=WHITE, size=9),
-    ))
-    fig_npa.add_trace(go.Scatter(
-        x=nnpa_s["Month"], y=nnpa_s["Rs"], name="Net NPA",
-        mode="lines+markers+text",
-        line=dict(color=RED, width=2.5), marker=dict(size=9, color=RED),
-        text=nnpa_s["Rs"].apply(fmt), textposition="top center",
-        textfont=dict(color=RED, size=9),
-    ))
-    fig_npa.add_hline(
-        y=npa_threshold, line_dash="dash", line_color=AMBER, line_width=1.5,
-        annotation_text=f"Threshold  {fmt(npa_threshold)}",
-        annotation_font=dict(color=AMBER, size=10),
-    )
-    apply_dark(fig_npa, height=370,
-               xaxis_title="Period", yaxis_title="NPA Ratio",
-               barmode="group",
-               legend=dict(orientation="h", y=-0.18, x=0.5, xanchor="center",
-                           bgcolor="rgba(0,0,0,0)", font=dict(color=WHITE)))
-    st.plotly_chart(fig_npa, use_container_width=True)
-
-    # FIX 2: show_tables gates this table
-    if show_tables:
-        st.markdown('<div class="sec-lbl">NPA Data Table</div>',
-                    unsafe_allow_html=True)
-        npa_tbl = gnpa_s.merge(nnpa_s, on="Month", suffixes=("_G", "_N"))
-        npa_tbl.columns = ["Period", "Gross NPA (raw)", "Net NPA (raw)"]
-        npa_tbl["Spread"] = npa_tbl["Gross NPA (raw)"] - npa_tbl["Net NPA (raw)"]
-        disp = npa_tbl.copy()
-        disp["Gross NPA"] = disp["Gross NPA (raw)"].apply(fmt)
-        disp["Net NPA"]   = disp["Net NPA (raw)"].apply(fmt)
-        disp["Spread"]    = disp["Spread"].apply(fmt)
-        st.dataframe(disp[["Period", "Gross NPA", "Net NPA", "Spread"]],
-                     use_container_width=True, hide_index=True)
+    st.markdown('<div class="sec-label">NPA Breakdown & Movement</div>', unsafe_allow_html=True)
+    
+    # Get NPA Loan breakdown
+    npa_cats = ["Substandard Loan", "Doubtful Loan", "Loss Loan"]
+    npa_breakdown = []
+    for cat in npa_cats:
+        s = get_series(cat, recent_months)
+        if not s.empty:
+            s["Category"] = cat
+            npa_breakdown.append(s)
+    
+    if npa_breakdown:
+        npa_df = pd.concat(nppa_breakdown)
+        fig_npa_bar = px.area(
+            npa_df, x="Month", y="Rs", color="Category", 
+            color_discrete_map={"Substandard Loan": COLORS["warning"], "Doubtful Loan": COLORS["danger"], "Loss Loan": COLORS["purple"]},
+            line_group="Category"
+        )
+        fig_npa_bar.update_layout(**PLOT_LAYOUT, height=350)
+        st.plotly_chart(fig_npa_bar, use_container_width=True)
+    
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        st.markdown('<div class="sec-label">NPA Ratio Trend</div>', unsafe_allow_html=True)
+        gnpa_s = get_series(LBL["gross_npa"], recent_months)
+        nnpa_s = get_series(LBL["net_npa"], recent_months)
+        
+        fig_npa = go.Figure()
+        fig_npa.add_trace(go.Scatter(x=gnpa_s["Month"], y=gnpa_s["Rs"], name="Gross NPA", fill="tozeroy", 
+                                     line=dict(color=COLORS["danger"], width=2), fillcolor=hex_to_rgba(COLORS["danger"], 0.1)))
+        fig_npa.add_trace(go.Scatter(x=nnpa_s["Month"], y=nnpa_s["Rs"], name="Net NPA", fill="tonexty", 
+                                     line=dict(color=COLORS["warning"], width=2), fillcolor=hex_to_rgba(COLORS["warning"], 0.1)))
+        fig_npa.add_hline(y=npa_threshold, line_dash="dash", line_color=COLORS["danger"], 
+                          annotation_text=f"Limit {fmt(npa_threshold)}", annotation_font_color=COLORS["danger"])
+        fig_npa.update_layout(**PLOT_LAYOUT, height=350, yaxis=dict(tickformat=".1%"))
+        st.plotly_chart(fig_npa, use_container_width=True)
+        
+    with c2:
+        st.markdown('<div class="sec-label">NPA Classification Reference</div>', unsafe_allow_html=True)
+        ref_data = pd.DataFrame({
+            "Category": ["Standard", "Sub-Standard", "Doubtful", "Loss"],
+            "Definition": ["Performing; timely repayment", "NPA > 90 days", "NPA > 12 months", "Non-recoverable"],
+            "Provisioning": ["0.25% – 2.00%", "15% – 25%", "25% – 100%", "100%"]
+        })
+        st.dataframe(ref_data, use_container_width=True, hide_index=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — Capital
+# TAB 3 — Capital & RWA
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab3:
-    st.markdown('<div class="sec-lbl">Capital Adequacy & Compliance</div>',
-                unsafe_allow_html=True)
-
-    buffer_val = kpi["tot_c"] - cap_threshold
-
-    g1, g2, g3 = st.columns(3)
-    with g1:
-        st.plotly_chart(
-            dark_gauge(kpi["core_c"], 0.15, "Core Capital (Tier I)",
-                       0.055, lower_better=False),
-            use_container_width=True)
-    with g2:
-        st.plotly_chart(
-            dark_gauge(kpi["tot_c"], 0.20, "Total Capital Ratio",
-                       cap_threshold, lower_better=False),
-            use_container_width=True)
-    with g3:
-        st.plotly_chart(
-            dark_gauge(abs(buffer_val), cap_threshold * 0.5, "Capital Buffer",
-                       cap_threshold * 0.1, lower_better=False),
-            use_container_width=True)
-
-    st.markdown('<div class="sec-lbl">Capital Position Over Time</div>',
-                unsafe_allow_html=True)
-    core_s  = get_series(LBL["core_cap"],  recent_months)   # FIX 1
-    total_s = get_series(LBL["total_cap"], recent_months)   # FIX 1
-
+    st.markdown('<div class="sec-label">Risk Weighted Exposures (Current Period)</div>', unsafe_allow_html=True)
+    
+    rwe_data = {
+        "Credit Risk": get_val(LBL["rwe_credit"], selected_month),
+        "Operational Risk": get_val(LBL["rwe_op"], selected_month),
+        "Market Risk": get_val(LBL["rwe_mkt"], selected_month)
+    }
+    
+    rwe_df = pd.DataFrame(list(rwe_data.items()), columns=["Risk Type", "Exposure"])
+    fig_rwe = px.bar(rwe_df, x="Risk Type", y="Exposure", text="Exposure",
+                     color="Risk Type", color_discrete_sequence=[COLORS["primary"], COLORS["purple"], COLORS["warning"]])
+    fig_rwe.update_traces(texttemplate='%{text:,.0f}', textposition='outside', textfont_color=COLORS["muted"])
+    fig_rwe.update_layout(**PLOT_LAYOUT, height=350, showlegend=False)
+    st.plotly_chart(fig_rwe, use_container_width=True)
+    
+    st.markdown('<div class="sec-label">Capital Buffer Over Time</div>', unsafe_allow_html=True)
+    core_s  = get_series(LBL["core_cap"], recent_months)
+    total_s = get_series(LBL["total_cap"], recent_months)
+    
     fig_cap = go.Figure()
-    fig_cap.add_trace(go.Scatter(
-        x=core_s["Month"], y=core_s["Rs"],
-        name="Core Capital (Tier I)", fill="tozeroy", mode="lines+markers",
-        line=dict(color=BLUE, width=2.5), fillcolor="rgba(59,130,246,.14)",
-        marker=dict(size=8),
-    ))
-    fig_cap.add_trace(go.Scatter(
-        x=total_s["Month"], y=total_s["Rs"],
-        name="Total Capital", fill="tonexty", mode="lines+markers",
-        line=dict(color=TEAL, width=2.5), fillcolor="rgba(0,212,170,.14)",
-        marker=dict(size=8),
-    ))
-    fig_cap.add_hline(
-        y=cap_threshold, line_dash="dash", line_color=RED, line_width=1.5,
-        annotation_text=f"Regulatory Min  {fmt(cap_threshold)}",
-        annotation_font=dict(color=RED, size=10),
-        annotation_position="bottom right",
-    )
-    apply_dark(fig_cap, height=370,
-               xaxis_title="Period", yaxis_title="Capital Ratio",
-               legend=dict(orientation="h", y=1.08, x=0.5, xanchor="center",
-                           bgcolor="rgba(0,0,0,0)", font=dict(color=WHITE)))
+    fig_cap.add_trace(go.Scatter(x=total_s["Month"], y=total_s["Rs"], name="Total Capital", fill="tozeroy", 
+                                 line=dict(color=COLORS["success"], width=2.5), fillcolor=hex_to_rgba(COLORS["success"], 0.15)))
+    fig_cap.add_trace(go.Scatter(x=core_s["Month"], y=core_s["Rs"], name="Core Capital", fill="tonexty", 
+                                 line=dict(color=COLORS["primary"], width=2.5), fillcolor=hex_to_rgba(COLORS["primary"], 0.15)))
+    fig_cap.add_hline(y=cap_threshold, line_dash="dash", line_color=COLORS["danger"], 
+                      annotation_text=f"Min {fmt(cap_threshold)}", annotation_font_color=COLORS["danger"])
+    fig_cap.update_layout(**PLOT_LAYOUT, height=400, yaxis=dict(tickformat=".1%"))
     st.plotly_chart(fig_cap, use_container_width=True)
-
-    m1, m2, m3 = st.columns(3)
-    with m1:
-        d = kpi["core_c"] - kpi["core_p"]
-        st.metric("Core Capital (Tier I)",   fmt(kpi["core_c"]), delta=f"{d:+.4f}")
-    with m2:
-        d = kpi["tot_c"] - kpi["tot_p"]
-        st.metric("Total Capital Ratio",     fmt(kpi["tot_c"]),  delta=f"{d:+.4f}")
-    with m3:
-        st.metric(
-            "Capital Buffer", fmt(abs(buffer_val)),
-            delta="Above minimum" if buffer_val >= 0 else "Below minimum",
-            delta_color="normal" if buffer_val >= 0 else "inverse",
-        )
-
-    # FIX 2: show_tables gates this table
-    if show_tables:
-        st.markdown('<div class="sec-lbl">Compliance Status Report</div>',
-                    unsafe_allow_html=True)
-        rows = [
-            {"Parameter": "Gross NPA",    "Current": fmt(kpi["gnpa_c"]),
-             "Threshold": fmt(npa_threshold),
-             "Status": "✓ Compliant" if kpi["gnpa_c"] <= npa_threshold else "✗ Breach"},
-            {"Parameter": "Net NPA",      "Current": fmt(kpi["nnpa_c"]),
-             "Threshold": fmt(npa_threshold * 0.8),
-             "Status": "✓ Compliant" if kpi["nnpa_c"] <= npa_threshold * 0.8 else "✗ Breach"},
-            {"Parameter": "Core Capital", "Current": fmt(kpi["core_c"]),
-             "Threshold": "5.50%",
-             "Status": "✓ Compliant" if kpi["core_c"] >= 0.055 else "✗ Breach"},
-            {"Parameter": "Total Capital","Current": fmt(kpi["tot_c"]),
-             "Threshold": fmt(cap_threshold),
-             "Status": "✓ Compliant" if kpi["tot_c"] >= cap_threshold else "✗ Breach"},
-        ]
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 4 — Data Explorer
-# FIX 3: filtered data ALWAYS visible; show_raw reveals full unfiltered dataset
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab4:
-    st.markdown('<div class="sec-lbl">Interactive Data Explorer</div>',
-                unsafe_allow_html=True)
-
+    st.markdown('<div class="sec-label">Interactive Dataset</div>', unsafe_allow_html=True)
+    
     cf1, cf2 = st.columns(2)
     with cf1:
-        part_filter = st.multiselect("Filter by Metric", avail_parts,
-                                     key="explorer_filter")
+        part_filter = st.multiselect("Filter by Metric", avail_parts, key="explorer_filter")
     with cf2:
-        sort_col = st.selectbox("Sort By", ["Month", "Particulars", "Rs"],
-                                key="explorer_sort")
-
-    # Build filtered view — also scoped to the slider window
+        sort_col = st.selectbox("Sort By", ["Month", "Particulars", "Rs"], key="explorer_sort")
+        
     explorer_df = df.copy()
-    explorer_df = explorer_df[explorer_df["Month"].isin(recent_months)]   # FIX 1
+    explorer_df = explorer_df[explorer_df["Month"].isin(recent_months)]
     if part_filter:
         explorer_df = explorer_df[explorer_df["Particulars"].isin(part_filter)]
     explorer_df = explorer_df.sort_values([sort_col, "Month"])
-
-    r1, r2 = st.columns([3, 1])
-    with r1:
-        rows_to_show = st.slider("Rows to display", 5, 200, 25, key="rows_slider")
-    with r2:
-        st.download_button(
-            "📥 Export CSV",
-            explorer_df.to_csv(index=False),
-            "mis_export.csv", "text/csv", key="csv_dl",
-        )
-
-    st.caption(
-        f"{min(rows_to_show, len(explorer_df))} of {len(explorer_df)} records  "
-        f"·  {comparison_periods} periods  "
-        f"·  {explorer_df['Particulars'].nunique()} metrics"
+    
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        st.caption(f"Displaying **{len(explorer_df)}** records from the last **{comparison_periods}** periods.")
+    with c2:
+        st.download_button("📥 Export CSV", explorer_df.to_csv(index=False), "basel_export.csv", "text/csv")
+        
+    st.dataframe(
+        explorer_df, use_container_width=True, hide_index=True,
+        column_config={
+            "Rs": st.column_config.NumberColumn(format="%.2f"),
+            "Month": st.column_config.TextColumn(width="small"),
+            "Particulars": st.column_config.TextColumn(width="large"),
+        }
     )
-
-    # ── Always visible: filtered table ────────────────────────────────────────
-    st.markdown('<div class="sec-lbl">Filtered Data</div>',
-                unsafe_allow_html=True)
-    if explorer_df.empty:
-        st.info("No records match the current filters.")
-    else:
-        st.dataframe(explorer_df.head(rows_to_show),
-                     use_container_width=True, hide_index=True)
-
-    # ── Always visible: pivot table ───────────────────────────────────────────
-    st.markdown('<div class="sec-lbl">Pivot Table — Metrics × Periods</div>',
-                unsafe_allow_html=True)
-    if not explorer_df.empty:
-        pivot = explorer_df.pivot_table(
-            index="Particulars", columns="Month",
-            values="Rs", aggfunc="first",
-        )
-        st.dataframe(pivot, use_container_width=True)
-
-    # ── FIX 3: show_raw reveals complete unfiltered raw dataset ───────────────
-    if show_raw:
-        st.markdown('<div class="sec-lbl">Raw — Complete Unfiltered Dataset</div>',
-                    unsafe_allow_html=True)
-        st.caption(f"All {len(df):,} records across all periods and metrics.")
-        st.dataframe(df, use_container_width=True, hide_index=True)
-
-    with st.expander("📊 Dataset Statistics"):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Records",   f"{len(df):,}")
-        c2.metric("Unique Metrics",  f"{df['Particulars'].nunique()}")
-        c3.metric("All Periods",     f"{df['Month'].nunique()}")
-        c4.metric("Current Window",  f"{comparison_periods}")
-
-
-# ── FOOTER ────────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown(
-    f'<div style="text-align:center;color:{MUTED};font-size:.75rem;padding:.65rem 0;'
-    f'font-family:\'IBM Plex Mono\',monospace;">'
-    f'BASEL ANALYTICS &nbsp;·&nbsp; Executive MIS Dashboard &nbsp;·&nbsp; FY 2025-26'
-    f'&nbsp;·&nbsp; {datetime.now().strftime("%Y-%m-%d %H:%M")}'
-    f'</div>',
-    unsafe_allow_html=True,
-)
