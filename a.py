@@ -520,4 +520,4 @@ with tab2:
         fig_npa.add_trace(go.Scatter(x=nnpa_s["Month"], y=nnpa_s["Rs"], name="Net NPA", fill="tonexty", 
                                      line=dict(color=COLORS["warning"], width=2), fillcolor=hex_to_rgba(COLORS["warning"], 0.1)))
         fig_npa.add_hline(y=npa_threshold, line_dash="dash", line_color=COLORS["danger"], 
-                          annotation_text=f"Limit
+                          annotation_text=f"Limit")
