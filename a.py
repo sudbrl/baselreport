@@ -490,7 +490,6 @@ with tab1:
 with tab2:
     st.markdown('<div class="sec-label">NPA Breakdown & Movement</div>', unsafe_allow_html=True)
     
-    # Get NPA Loan breakdown
     npa_cats = ["Substandard Loan", "Doubtful Loan", "Loss Loan"]
     npa_breakdown = []
     for cat in npa_cats:
@@ -500,7 +499,7 @@ with tab2:
             npa_breakdown.append(s)
     
     if npa_breakdown:
-        npa_df = pd.concat(nppa_breakdown)
+        npa_df = pd.concat(npa_breakdown)
         fig_npa_bar = px.area(
             npa_df, x="Month", y="Rs", color="Category", 
             color_discrete_map={"Substandard Loan": COLORS["warning"], "Doubtful Loan": COLORS["danger"], "Loss Loan": COLORS["purple"]},
@@ -521,83 +520,4 @@ with tab2:
         fig_npa.add_trace(go.Scatter(x=nnpa_s["Month"], y=nnpa_s["Rs"], name="Net NPA", fill="tonexty", 
                                      line=dict(color=COLORS["warning"], width=2), fillcolor=hex_to_rgba(COLORS["warning"], 0.1)))
         fig_npa.add_hline(y=npa_threshold, line_dash="dash", line_color=COLORS["danger"], 
-                          annotation_text=f"Limit {fmt(npa_threshold)}", annotation_font_color=COLORS["danger"])
-        fig_npa.update_layout(**PLOT_LAYOUT, height=350, yaxis=dict(tickformat=".1%"))
-        st.plotly_chart(fig_npa, use_container_width=True)
-        
-    with c2:
-        st.markdown('<div class="sec-label">NPA Classification Reference</div>', unsafe_allow_html=True)
-        ref_data = pd.DataFrame({
-            "Category": ["Standard", "Sub-Standard", "Doubtful", "Loss"],
-            "Definition": ["Performing; timely repayment", "NPA > 90 days", "NPA > 12 months", "Non-recoverable"],
-            "Provisioning": ["0.25% – 2.00%", "15% – 25%", "25% – 100%", "100%"]
-        })
-        st.dataframe(ref_data, use_container_width=True, hide_index=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — Capital & RWA
-# ═══════════════════════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown('<div class="sec-label">Risk Weighted Exposures (Current Period)</div>', unsafe_allow_html=True)
-    
-    rwe_data = {
-        "Credit Risk": get_val(LBL["rwe_credit"], selected_month),
-        "Operational Risk": get_val(LBL["rwe_op"], selected_month),
-        "Market Risk": get_val(LBL["rwe_mkt"], selected_month)
-    }
-    
-    rwe_df = pd.DataFrame(list(rwe_data.items()), columns=["Risk Type", "Exposure"])
-    fig_rwe = px.bar(rwe_df, x="Risk Type", y="Exposure", text="Exposure",
-                     color="Risk Type", color_discrete_sequence=[COLORS["primary"], COLORS["purple"], COLORS["warning"]])
-    fig_rwe.update_traces(texttemplate='%{text:,.0f}', textposition='outside', textfont_color=COLORS["muted"])
-    fig_rwe.update_layout(**PLOT_LAYOUT, height=350, showlegend=False)
-    st.plotly_chart(fig_rwe, use_container_width=True)
-    
-    st.markdown('<div class="sec-label">Capital Buffer Over Time</div>', unsafe_allow_html=True)
-    core_s  = get_series(LBL["core_cap"], recent_months)
-    total_s = get_series(LBL["total_cap"], recent_months)
-    
-    fig_cap = go.Figure()
-    fig_cap.add_trace(go.Scatter(x=total_s["Month"], y=total_s["Rs"], name="Total Capital", fill="tozeroy", 
-                                 line=dict(color=COLORS["success"], width=2.5), fillcolor=hex_to_rgba(COLORS["success"], 0.15)))
-    fig_cap.add_trace(go.Scatter(x=core_s["Month"], y=core_s["Rs"], name="Core Capital", fill="tonexty", 
-                                 line=dict(color=COLORS["primary"], width=2.5), fillcolor=hex_to_rgba(COLORS["primary"], 0.15)))
-    fig_cap.add_hline(y=cap_threshold, line_dash="dash", line_color=COLORS["danger"], 
-                      annotation_text=f"Min {fmt(cap_threshold)}", annotation_font_color=COLORS["danger"])
-    fig_cap.update_layout(**PLOT_LAYOUT, height=400, yaxis=dict(tickformat=".1%"))
-    st.plotly_chart(fig_cap, use_container_width=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — Data Explorer
-# ═══════════════════════════════════════════════════════════════════════════════
-with tab4:
-    st.markdown('<div class="sec-label">Interactive Dataset</div>', unsafe_allow_html=True)
-    
-    cf1, cf2 = st.columns(2)
-    with cf1:
-        part_filter = st.multiselect("Filter by Metric", avail_parts, key="explorer_filter")
-    with cf2:
-        sort_col = st.selectbox("Sort By", ["Month", "Particulars", "Rs"], key="explorer_sort")
-        
-    explorer_df = df.copy()
-    explorer_df = explorer_df[explorer_df["Month"].isin(recent_months)]
-    if part_filter:
-        explorer_df = explorer_df[explorer_df["Particulars"].isin(part_filter)]
-    explorer_df = explorer_df.sort_values([sort_col, "Month"])
-    
-    c1, c2 = st.columns([4, 1])
-    with c1:
-        st.caption(f"Displaying **{len(explorer_df)}** records from the last **{comparison_periods}** periods.")
-    with c2:
-        st.download_button("📥 Export CSV", explorer_df.to_csv(index=False), "basel_export.csv", "text/csv")
-        
-    st.dataframe(
-        explorer_df, use_container_width=True, hide_index=True,
-        column_config={
-            "Rs": st.column_config.NumberColumn(format="%.2f"),
-            "Month": st.column_config.TextColumn(width="small"),
-            "Particulars": st.column_config.TextColumn(width="large"),
-        }
-    )
+                          annotation_text=f"Limit
